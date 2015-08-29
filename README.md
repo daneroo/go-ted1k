@@ -1,0 +1,1 @@
+# MySQL test with Go
