@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"github.com/go-sql-driver/mysql"
 	"log"
+	"time"
 )
 
 func main() {
@@ -27,25 +28,44 @@ func main() {
 	}
 	log.Printf("Found %v entries\n", totalCount)
 
-	rowCount, offset := 10, 0
+	rowCount, offset := 1000, 0
+	startTimeExcl := time.Date(2007, time.January, 0, 0, 0, 0, 0, time.UTC)
 	for offset = 0; offset <= totalCount; offset += rowCount {
-		rows, err := db.Query("SELECT stamp,watt FROM watt order by stamp asc LIMIT ? OFFSET ?", rowCount, offset)
+		startTimeExcl = oneChunk(db, startTimeExcl, rowCount)
+	}
+
+}
+
+func oneChunk(db *sql.DB, startTimeExcl time.Time, rowCount int) time.Time {
+	rows, err := db.Query("SELECT stamp,watt FROM watt where stamp>? ORDER BY stamp ASC LIMIT ?", startTimeExcl, rowCount)
+	if err != nil {
+		log.Println(err)
+	}
+	defer rows.Close()
+
+	avgWatt := 0
+	count := 0
+	var lastStamp time.Time
+	for rows.Next() {
+		// var stamp string
+		var stamp mysql.NullTime
+		var watt int
+		err = rows.Scan(&stamp, &watt)
 		if err != nil {
 			log.Println(err)
 		}
-		defer rows.Close()
-		for rows.Next() {
-			// var stamp string
-			var stamp mysql.NullTime
-			var watt int
-			err = rows.Scan(&stamp, &watt)
-			if err != nil {
-				log.Println(err)
-			}
-			log.Printf(" %v: %v", stamp, watt)
+		avgWatt += watt
+		count++
+		if stamp.Valid {
+			lastStamp = stamp.Time
 		}
-		err = rows.Err() // get any error encountered during iteration
-
+		// log.Printf(" %v: %v", stamp, watt)
 	}
-
+	err = rows.Err() // get any error encountered during iteration
+	if err != nil {
+		log.Println(err)
+	}
+	avgWatt /= count
+	log.Printf("average between (%v - %v]: %v", startTimeExcl, lastStamp, avgWatt)
+	return lastStamp
 }
