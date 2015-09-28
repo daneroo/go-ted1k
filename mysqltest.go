@@ -12,7 +12,8 @@ func main() {
 	for i := 0; i < 2; i++ {
 		log.Printf("working %v\n", i)
 	}
-	db, err := sql.Open("mysql", "daniel@tcp(192.168.5.105:3306)/ted")
+	// db, err := sql.Open("mysql", "daniel@tcp(192.168.5.105:3306)/ted")
+	db, err := sql.Open("mysql", "ted:secret@tcp(192.168.99.100:3306)/ted")
 	if err != nil {
 		log.Println(err)
 	}
