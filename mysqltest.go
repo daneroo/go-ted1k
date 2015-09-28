@@ -28,23 +28,33 @@ func main() {
 	}
 	log.Printf("Found %v entries\n", totalCount)
 
-	rowCount, offset := 1000, 0
+	const maxCountPerChunk = 3600 * 24
+	rowCount := 0
 	startTimeExcl := time.Date(2007, time.January, 0, 0, 0, 0, 0, time.UTC)
-	for offset = 0; offset <= totalCount; offset += rowCount {
-		startTimeExcl = oneChunk(db, startTimeExcl, rowCount)
+	// startTimeExcl := time.Date(2037, time.January, 0, 0, 0, 0, 0, time.UTC)
+	for {
+		chunkRowCount := 0
+		startTimeExcl, chunkRowCount = oneChunk(db, startTimeExcl, maxCountPerChunk)
+		rowCount += chunkRowCount
+		if chunkRowCount == 0 {
+			break
+		}
 	}
+	log.Printf("Fetched a total of %d rows (%d before iteration)", rowCount, totalCount)
 
 }
 
-func oneChunk(db *sql.DB, startTimeExcl time.Time, rowCount int) time.Time {
-	rows, err := db.Query("SELECT stamp,watt FROM watt where stamp>? ORDER BY stamp ASC LIMIT ?", startTimeExcl, rowCount)
+func oneChunk(db *sql.DB, startTimeExcl time.Time, maxCountPerChunk int) (time.Time, int) {
+	sql := "SELECT stamp,watt FROM watt where stamp>? ORDER BY stamp ASC LIMIT ?"
+	// sql := "SELECT stamp,watt FROM watt where stamp<? ORDER BY stamp DESC LIMIT ?"
+	rows, err := db.Query(sql, startTimeExcl, maxCountPerChunk)
 	if err != nil {
 		log.Println(err)
 	}
 	defer rows.Close()
 
 	avgWatt := 0
-	count := 0
+	chunkRowCount := 0
 	var lastStamp time.Time
 	for rows.Next() {
 		// var stamp string
@@ -55,7 +65,7 @@ func oneChunk(db *sql.DB, startTimeExcl time.Time, rowCount int) time.Time {
 			log.Println(err)
 		}
 		avgWatt += watt
-		count++
+		chunkRowCount++
 		if stamp.Valid {
 			lastStamp = stamp.Time
 		}
@@ -65,7 +75,9 @@ func oneChunk(db *sql.DB, startTimeExcl time.Time, rowCount int) time.Time {
 	if err != nil {
 		log.Println(err)
 	}
-	avgWatt /= count
-	log.Printf("average between (%v - %v]: %v", startTimeExcl, lastStamp, avgWatt)
-	return lastStamp
+	if chunkRowCount != 0 {
+		avgWatt /= chunkRowCount
+	}
+	log.Printf("average between (%v - %v]: %v (%v)", startTimeExcl, lastStamp, avgWatt, chunkRowCount)
+	return lastStamp, chunkRowCount
 }
