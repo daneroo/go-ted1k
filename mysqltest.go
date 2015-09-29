@@ -15,8 +15,9 @@ const (
 
 var (
 	db         *sql.DB
+	tx         *sql.Tx
 	insertStmt *sql.Stmt
-	epoch      = time.Date(2015, time.June, 0, 0, 0, 0, 0, time.UTC)
+	epoch      = time.Date(2015, time.September, 27, 0, 0, 0, 0, time.UTC)
 	// epoch         = time.Date(2007, time.January, 0, 0, 0, 0, 0, time.UTC)
 	// epoch = time.Date(2037, time.January, 0, 0, 0, 0, 0, time.UTC)
 )
@@ -30,10 +31,17 @@ func main() {
 	defer db.Close()
 	log.Println("Survived Opening")
 
+	createCopyTable()
+
+	tx, err = db.Begin()
+	checkErr(err)
+	// defer tx.Commit() // not quite right..
+
 	insertStmt, err = db.Prepare(insertSql)
+	// insertStmt, err = tx.Prepare(insertSql)
 	checkErr(err)
 	defer insertStmt.Close()
-	log.Println("Prepared insert statement")
+	log.Println("Prepared insert statement (in a transaction")
 
 	var totalCount int
 	row := db.QueryRow("SELECT COUNT(*) FROM watt")
@@ -43,8 +51,6 @@ func main() {
 		panic(err)
 	}
 	log.Printf("Found %d entries in watt\n", totalCount)
-
-	createCopyTable()
 
 	const maxCountPerChunk = 3600 * 24
 	rowCount := 0
@@ -84,7 +90,7 @@ func oneChunk(db *sql.DB, startTimeExcl time.Time, maxCountPerChunk int) (time.T
 		chunkRowCount++
 		if stamp.Valid {
 			lastStamp = stamp.Time
-			// writeOneRow(stamp.Time, watt)
+			writeOneRow(stamp.Time, watt)
 		}
 		// log.Printf(" %v: %v", stamp, watt)
 	}
