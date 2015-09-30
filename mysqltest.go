@@ -2,16 +2,21 @@ package main
 
 import (
 	"database/sql"
-	"github.com/go-sql-driver/mysql"
+	_ "github.com/go-sql-driver/mysql"
 	"log"
 	"time"
 )
+
+type Entry struct {
+	stamp time.Time
+	watt  int
+}
 
 const (
 	// myCredentials = "daniel@tcp(192.168.5.105:3306)/ted"
 	myCredentials    = "ted:secret@tcp(192.168.99.100:3306)/ted"
 	insertSql        = "INSERT IGNORE INTO watt2 (stamp, watt) VALUES (?,?)"
-	maxCountPerChunk = 3600 * 24
+	maxCountPerChunk = 10000 //3600 * 24
 )
 
 var (
@@ -26,6 +31,16 @@ var (
 func main() {
 	log.Printf("Just getting %s\n", "started")
 
+	// tst := make(chan Entry)
+	// go func() {
+	// 	tst <- Entry{stamp: time.Now(), watt: 1234}
+	// }()
+
+	// rec := <-tst
+	// log.Printf("rec: %v %v", rec.stamp, rec.watt)
+	// // time.Sleep(10 * time.Second)
+	// panic("premature")
+
 	var err error
 	db, err = sql.Open("mysql", myCredentials)
 	checkErr(err)
@@ -36,7 +51,7 @@ func main() {
 
 	// insertStmt, err = db.Prepare(insertSql)
 	// defer insertStmt.Close()
-	log.Println("Prepared insert statement (in a transaction")
+	log.Println("Prepared insert statement (in a transaction)")
 
 	var totalCount int
 	row := db.QueryRow("SELECT COUNT(*) FROM watt")
@@ -47,21 +62,31 @@ func main() {
 	}
 	log.Printf("Found %d entries in watt\n", totalCount)
 
+	src := make(chan Entry)
+	go readAll(src)
+	writeAll(src)
+}
+
+func writeAll(src chan Entry) {
+	var err error
 	tx, err = db.Begin()
 	checkErr(err)
 	insertStmt, err = tx.Prepare(insertSql)
 	checkErr(err)
 
-	rowCount := 0
-	startTimeExcl := epoch
+	count := 0
 	for {
-		chunkRowCount := 0
-		startTimeExcl, chunkRowCount = oneChunk(db, startTimeExcl, maxCountPerChunk)
-		rowCount += chunkRowCount
+		// log.Println("About to receive an entry")
+		entry := <-src
+		count++
 
-		commitAndBeginTx()
+		if (count % 200) == 0 {
+			commitAndBeginTx()
+		}
+		writeOneRow(entry.stamp, entry.watt)
+		// log.Printf("Write %v, %d  (%d)\n", entry.stamp, entry.watt, count)
 
-		if chunkRowCount == 0 {
+		if count == 118515 {
 			break
 		}
 	}
@@ -72,47 +97,7 @@ func main() {
 	err = tx.Commit() // not quite right..
 	checkErr(err)
 
-	log.Printf("Fetched a total of %d rows (%d before iteration)", rowCount, totalCount)
-
 }
-
-func oneChunk(db *sql.DB, startTimeExcl time.Time, maxCountPerChunk int) (time.Time, int) {
-	defer timeTrack(time.Now(), "oneChunk", maxCountPerChunk)
-	sql := "SELECT stamp,watt FROM watt where stamp>? ORDER BY stamp ASC LIMIT ?"
-	// sql := "SELECT stamp,watt FROM watt where stamp<? ORDER BY stamp DESC LIMIT ?"
-	rows, err := db.Query(sql, startTimeExcl, maxCountPerChunk)
-	checkErr(err)
-	defer rows.Close()
-
-	avgWatt := 0
-	chunkRowCount := 0
-	var lastStamp time.Time
-	for rows.Next() {
-		// var stamp string
-		var stamp mysql.NullTime
-		var watt int
-		err = rows.Scan(&stamp, &watt)
-		if err != nil {
-			log.Println(err)
-		}
-		avgWatt += watt
-		chunkRowCount++
-		if stamp.Valid {
-			lastStamp = stamp.Time
-			writeOneRow(stamp.Time, watt)
-		}
-		// log.Printf(" %v: %v", stamp, watt)
-	}
-	err = rows.Err() // get any error encountered during iteration
-	checkErr(err)
-
-	if chunkRowCount != 0 {
-		avgWatt /= chunkRowCount
-	}
-	log.Printf("average between (%v - %v]: %v (%v)", startTimeExcl, lastStamp, avgWatt, chunkRowCount)
-	return lastStamp, chunkRowCount
-}
-
 func createCopyTable() {
 	// ddl:="create table if not exists watt2 like watt"
 	ddl := "CREATE TABLE IF NOT EXISTS watt2 ( stamp datetime NOT NULL DEFAULT '1970-01-01 00:00:00', watt int(11) NOT NULL DEFAULT '0',  PRIMARY KEY (`stamp`) )"
@@ -139,21 +124,4 @@ func writeOneRow(stamp time.Time, watt int) {
 	// if affected > 0 {
 	// 	log.Printf("id:%d affected:%d", id, affected)
 	// }
-}
-
-func timeTrack(start time.Time, name string, count int) {
-	elapsed := time.Since(start)
-	if count > 0 {
-		rate := float64(count) / elapsed.Seconds()
-		log.Printf("%s took %s, rate ~ %.1f/s", name, elapsed, rate)
-	} else {
-		log.Printf("%s took %s", name, elapsed)
-	}
-}
-
-func checkErr(err error) {
-	if err != nil {
-		log.Println(err)
-		panic(err)
-	}
 }
