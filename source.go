@@ -47,9 +47,7 @@ func oneChunk(db *sql.DB, startTimeExcl time.Time, maxCountPerChunk int, src cha
 		chunkRowCount++
 		if stamp.Valid {
 			lastStamp = stamp.Time
-			// log.Println("About to send an entry")
 			src <- Entry{stamp: stamp.Time, watt: watt}
-			// writeOneRow(stamp.Time, watt)
 		}
 		// log.Printf(" %v: %v", stamp, watt)
 	}

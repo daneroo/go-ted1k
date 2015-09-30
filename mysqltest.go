@@ -16,7 +16,7 @@ const (
 	// myCredentials = "daniel@tcp(192.168.5.105:3306)/ted"
 	myCredentials    = "ted:secret@tcp(192.168.99.100:3306)/ted"
 	insertSql        = "INSERT IGNORE INTO watt2 (stamp, watt) VALUES (?,?)"
-	maxCountPerChunk = 10000 //3600 * 24
+	maxCountPerChunk = 3600 * 24
 )
 
 var (
@@ -62,6 +62,7 @@ func main() {
 	}
 	log.Printf("Found %d entries in watt\n", totalCount)
 
+	// src := make(chan Entry, maxCountPerChunk)
 	src := make(chan Entry)
 	go readAll(src)
 	writeAll(src)
@@ -76,15 +77,16 @@ func writeAll(src chan Entry) {
 
 	count := 0
 	for {
-		// log.Println("About to receive an entry")
 		entry := <-src
-		count++
 
-		if (count % 200) == 0 {
-			commitAndBeginTx()
-		}
 		writeOneRow(entry.stamp, entry.watt)
 		// log.Printf("Write %v, %d  (%d)\n", entry.stamp, entry.watt, count)
+
+		count++
+		if (count % 10000) == 0 {
+			log.Printf("Commit checkpoint at %d records", count)
+			commitAndBeginTx()
+		}
 
 		if count == 118515 {
 			break
