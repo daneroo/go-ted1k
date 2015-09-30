@@ -9,8 +9,9 @@ import (
 
 const (
 	// myCredentials = "daniel@tcp(192.168.5.105:3306)/ted"
-	myCredentials = "ted:secret@tcp(192.168.99.100:3306)/ted"
-	insertSql     = "INSERT IGNORE INTO watt2 (stamp, watt) VALUES (?,?)"
+	myCredentials    = "ted:secret@tcp(192.168.99.100:3306)/ted"
+	insertSql        = "INSERT IGNORE INTO watt2 (stamp, watt) VALUES (?,?)"
+	maxCountPerChunk = 3600 * 24
 )
 
 var (
@@ -33,14 +34,8 @@ func main() {
 
 	createCopyTable()
 
-	tx, err = db.Begin()
-	checkErr(err)
-	// defer tx.Commit() // not quite right..
-
-	insertStmt, err = db.Prepare(insertSql)
-	// insertStmt, err = tx.Prepare(insertSql)
-	checkErr(err)
-	defer insertStmt.Close()
+	// insertStmt, err = db.Prepare(insertSql)
+	// defer insertStmt.Close()
 	log.Println("Prepared insert statement (in a transaction")
 
 	var totalCount int
@@ -52,17 +47,31 @@ func main() {
 	}
 	log.Printf("Found %d entries in watt\n", totalCount)
 
-	const maxCountPerChunk = 3600 * 24
+	tx, err = db.Begin()
+	checkErr(err)
+	insertStmt, err = tx.Prepare(insertSql)
+	checkErr(err)
+
 	rowCount := 0
 	startTimeExcl := epoch
 	for {
 		chunkRowCount := 0
 		startTimeExcl, chunkRowCount = oneChunk(db, startTimeExcl, maxCountPerChunk)
 		rowCount += chunkRowCount
+
+		commitAndBeginTx()
+
 		if chunkRowCount == 0 {
 			break
 		}
 	}
+
+	// final Close
+	insertStmt.Close()
+	// final Tx.commit
+	err = tx.Commit() // not quite right..
+	checkErr(err)
+
 	log.Printf("Fetched a total of %d rows (%d before iteration)", rowCount, totalCount)
 
 }
@@ -112,6 +121,15 @@ func createCopyTable() {
 	// log.Printf("%v\n", result)
 }
 
+func commitAndBeginTx() {
+	insertStmt.Close()
+	var err error
+	tx.Commit()
+	tx, err = db.Begin()
+	checkErr(err)
+	insertStmt, err = tx.Prepare(insertSql)
+	checkErr(err)
+}
 func writeOneRow(stamp time.Time, watt int) {
 	// log.Printf("Write %v, %d\n", stamp, watt)
 	_, err := insertStmt.Exec(stamp, watt)

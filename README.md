@@ -19,3 +19,12 @@ From Godel to local docker:
 
 	3600*24: 294s,290s
 
+
+## MySQL inserts are ridiculously slow
+This is what we di to spead things up:
+(all time measured on dirac/docker)
+
+- Initial naive approach: 550 ins/s
+- Prepared statements: 650 ins/s
+- Transactions: 2500-3000 ins/s (depending on size of batch...)
+
