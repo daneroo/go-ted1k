@@ -5,6 +5,14 @@
 - Cleanup docker script(s) : add start-db.sh
 - Batch writes to ted/watt2
 
+## Vendoring
+See this [Go/Wiki for reference](https://github.com/golang/go/wiki/PackageManagementTools)
+
+We want to use `GO15VENDOREXPERIMENT=1` and place our external dependencies in a `vendor folder`.
+We are using [`govend`](https://github.com/gophersaurus/govend) as listed.
+
+To install `govend`, we did a standard `go get -u github.com/gophersaurus/govend`, and makde sure our `GOPATH` was set and `$GOPATH/bin` is on our `$PATH`. also `GO15VENDOREXPERIMENT=1` needs to be set.
+
 
 ## Timing of MySQL reads
 For timing of MySQL selects with maxCount results

@@ -1,0 +1,2 @@
+- path: github.com/go-sql-driver/mysql
+  rev: 527bcd55aab2e53314f1a150922560174b493034
