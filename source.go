@@ -7,24 +7,29 @@ import (
 	"time"
 )
 
-func readAll(src chan Entry) {
+func readAll() <-chan Entry {
+	src := make(chan Entry)
 
-	rowCount := 0
-	startTimeExcl := epoch
-	for {
-		chunkRowCount := 0
-		startTimeExcl, chunkRowCount = oneChunk(db, startTimeExcl, maxCountPerChunk, src)
-		rowCount += chunkRowCount
+	go func() {
+		rowCount := 0
+		startTimeExcl := epoch
+		for {
+			chunkRowCount := 0
+			startTimeExcl, chunkRowCount = oneChunk(db, startTimeExcl, maxCountPerChunk, src)
+			rowCount += chunkRowCount
 
-		if chunkRowCount == 0 {
-			break
+			if chunkRowCount == 0 {
+				break
+			}
 		}
-	}
+		close(src)
+		log.Printf("Fetched a total of %d rows", rowCount)
+	}()
 
-	log.Printf("Fetched a total of %d rows", rowCount)
+	return src
 }
 
-func oneChunk(db *sql.DB, startTimeExcl time.Time, maxCountPerChunk int, src chan Entry) (time.Time, int) {
+func oneChunk(db *sql.DB, startTimeExcl time.Time, maxCountPerChunk int, src chan<- Entry) (time.Time, int) {
 	defer timeTrack(time.Now(), "oneChunk", maxCountPerChunk)
 	sql := "SELECT stamp,watt FROM watt where stamp>? ORDER BY stamp ASC LIMIT ?"
 	// sql := "SELECT stamp,watt FROM watt where stamp<? ORDER BY stamp DESC LIMIT ?"

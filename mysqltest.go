@@ -31,16 +31,6 @@ var (
 func main() {
 	log.Printf("Just getting %s\n", "started")
 
-	// tst := make(chan Entry)
-	// go func() {
-	// 	tst <- Entry{stamp: time.Now(), watt: 1234}
-	// }()
-
-	// rec := <-tst
-	// log.Printf("rec: %v %v", rec.stamp, rec.watt)
-	// // time.Sleep(10 * time.Second)
-	// panic("premature")
-
 	var err error
 	db, err = sql.Open("mysql", myCredentials)
 	checkErr(err)
@@ -62,13 +52,13 @@ func main() {
 	}
 	log.Printf("Found %d entries in watt\n", totalCount)
 
-	// src := make(chan Entry, maxCountPerChunk)
-	src := make(chan Entry)
-	go readAll(src)
+	// create a read-only channel for source Entry(s)
+	src := readAll()
+	// consume the channel with this sink
 	writeAll(src)
 }
 
-func writeAll(src chan Entry) {
+func writeAll(src <-chan Entry) {
 	var err error
 	tx, err = db.Begin()
 	checkErr(err)
@@ -76,8 +66,7 @@ func writeAll(src chan Entry) {
 	checkErr(err)
 
 	count := 0
-	for {
-		entry := <-src
+	for entry := range src {
 
 		writeOneRow(entry.stamp, entry.watt)
 		// log.Printf("Write %v, %d  (%d)\n", entry.stamp, entry.watt, count)
@@ -88,9 +77,6 @@ func writeAll(src chan Entry) {
 			commitAndBeginTx()
 		}
 
-		if count == 118515 {
-			break
-		}
 	}
 
 	// final Close
