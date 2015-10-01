@@ -2,11 +2,14 @@ package main
 
 import (
 	"database/sql"
+	. "github.com/daneroo/go-mysqltest/types"
+	. "github.com/daneroo/go-mysqltest/util"
 	"github.com/go-sql-driver/mysql"
 	"log"
 	"time"
 )
 
+// readAll creates and return a channel of Entry
 func readAll() <-chan Entry {
 	src := make(chan Entry)
 
@@ -30,11 +33,11 @@ func readAll() <-chan Entry {
 }
 
 func oneChunk(db *sql.DB, startTimeExcl time.Time, maxCountPerChunk int, src chan<- Entry) (time.Time, int) {
-	defer timeTrack(time.Now(), "oneChunk", maxCountPerChunk)
+	defer TimeTrack(time.Now(), "oneChunk", maxCountPerChunk)
 	sql := "SELECT stamp,watt FROM watt where stamp>? ORDER BY stamp ASC LIMIT ?"
 	// sql := "SELECT stamp,watt FROM watt where stamp<? ORDER BY stamp DESC LIMIT ?"
 	rows, err := db.Query(sql, startTimeExcl, maxCountPerChunk)
-	checkErr(err)
+	Checkerr(err)
 	defer rows.Close()
 
 	avgWatt := 0
@@ -52,12 +55,12 @@ func oneChunk(db *sql.DB, startTimeExcl time.Time, maxCountPerChunk int, src cha
 		chunkRowCount++
 		if stamp.Valid {
 			lastStamp = stamp.Time
-			src <- Entry{stamp: stamp.Time, watt: watt}
+			src <- Entry{Stamp: stamp.Time, Watt: watt}
 		}
 		// log.Printf(" %v: %v", stamp, watt)
 	}
 	err = rows.Err() // get any error encountered during iteration
-	checkErr(err)
+	Checkerr(err)
 
 	if chunkRowCount != 0 {
 		avgWatt /= chunkRowCount

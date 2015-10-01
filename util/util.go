@@ -1,4 +1,4 @@
-package main
+package util
 
 // Just some auxilliary functions
 
@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-func timeTrack(start time.Time, name string, count int) {
+func TimeTrack(start time.Time, name string, count int) {
 	elapsed := time.Since(start)
 	if count > 0 {
 		rate := float64(count) / elapsed.Seconds()
@@ -17,7 +17,7 @@ func timeTrack(start time.Time, name string, count int) {
 	}
 }
 
-func checkErr(err error) {
+func Checkerr(err error) {
 	if err != nil {
 		log.Println(err)
 		panic(err)

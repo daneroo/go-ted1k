@@ -2,15 +2,11 @@ package main
 
 import (
 	"database/sql"
+	. "github.com/daneroo/go-mysqltest/util"
 	_ "github.com/go-sql-driver/mysql"
 	"log"
 	"time"
 )
-
-type Entry struct {
-	stamp time.Time
-	watt  int
-}
 
 const (
 	// myCredentials = "daniel@tcp(192.168.5.105:3306)/ted"
@@ -33,7 +29,7 @@ func main() {
 
 	var err error
 	db, err = sql.Open("mysql", myCredentials)
-	checkErr(err)
+	Checkerr(err)
 	defer db.Close()
 	log.Println("Survived Opening")
 
@@ -62,6 +58,6 @@ func createCopyTable() {
 	// ddl:="create table if not exists watt2 like watt"
 	ddl := "CREATE TABLE IF NOT EXISTS watt2 ( stamp datetime NOT NULL DEFAULT '1970-01-01 00:00:00', watt int(11) NOT NULL DEFAULT '0',  PRIMARY KEY (`stamp`) )"
 	_, err := db.Exec(ddl)
-	checkErr(err)
+	Checkerr(err)
 	// log.Printf("%v\n", result)
 }
