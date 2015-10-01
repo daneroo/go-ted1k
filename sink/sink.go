@@ -1,13 +1,35 @@
-package main
+package sink
 
 import (
+	"database/sql"
 	. "github.com/daneroo/go-mysqltest/types"
 	. "github.com/daneroo/go-mysqltest/util"
+	_ "github.com/go-sql-driver/mysql"
 	"log"
 	"time"
 )
 
-func writeAll(src <-chan Entry) {
+const (
+	insertSql = "INSERT IGNORE INTO watt2 (stamp, watt) VALUES (?,?)"
+)
+
+var (
+	tx         *sql.Tx
+	insertStmt *sql.Stmt
+)
+
+func IgnoreAll(db *sql.DB, src <-chan Entry) {
+	start := time.Now()
+	count := 0
+	for entry := range src {
+		count++
+		if (count % 1000000) == 0 {
+			log.Printf("Ignore::checkpoint at %d records %v", count, entry.Stamp)
+		}
+	}
+	TimeTrack(start, "sink.IgnoreAll", count)
+}
+func WriteAll(db *sql.DB, src <-chan Entry) {
 	var err error
 	tx, err = db.Begin()
 	Checkerr(err)
@@ -22,8 +44,8 @@ func writeAll(src <-chan Entry) {
 
 		count++
 		if (count % 10000) == 0 {
-			log.Printf("Commit checkpoint at %d records", count)
-			commitAndBeginTx()
+			log.Printf("Write::checkpoint at %d records %v", count, entry.Stamp)
+			commitAndBeginTx(db)
 		}
 
 	}
@@ -36,7 +58,7 @@ func writeAll(src <-chan Entry) {
 
 }
 
-func commitAndBeginTx() {
+func commitAndBeginTx(db *sql.DB) {
 	insertStmt.Close()
 	var err error
 	tx.Commit()
