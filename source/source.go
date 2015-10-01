@@ -1,4 +1,4 @@
-package main
+package source
 
 import (
 	"database/sql"
@@ -9,8 +9,15 @@ import (
 	"time"
 )
 
-// readAll creates and return a channel of Entry
-func readAll() <-chan Entry {
+var (
+	maxCountPerChunk = 3600 * 24
+	epoch            = time.Date(2015, time.September, 27, 0, 0, 0, 0, time.UTC)
+	// epoch         = time.Date(2007, time.January, 0, 0, 0, 0, 0, time.UTC)
+	// epoch = time.Date(2037, time.January, 0, 0, 0, 0, 0, time.UTC)
+)
+
+// ReadAll creates and return a channel of Entry
+func ReadAll(db *sql.DB) <-chan Entry {
 	src := make(chan Entry)
 
 	go func() {

@@ -2,26 +2,22 @@ package main
 
 import (
 	"database/sql"
+	"github.com/daneroo/go-mysqltest/source"
 	. "github.com/daneroo/go-mysqltest/util"
 	_ "github.com/go-sql-driver/mysql"
 	"log"
-	"time"
 )
 
 const (
 	// myCredentials = "daniel@tcp(192.168.5.105:3306)/ted"
-	myCredentials    = "ted:secret@tcp(192.168.99.100:3306)/ted"
-	insertSql        = "INSERT IGNORE INTO watt2 (stamp, watt) VALUES (?,?)"
-	maxCountPerChunk = 3600 * 24
+	myCredentials = "ted:secret@tcp(192.168.99.100:3306)/ted"
+	insertSql     = "INSERT IGNORE INTO watt2 (stamp, watt) VALUES (?,?)"
 )
 
 var (
 	db         *sql.DB
 	tx         *sql.Tx
 	insertStmt *sql.Stmt
-	epoch      = time.Date(2015, time.September, 27, 0, 0, 0, 0, time.UTC)
-	// epoch         = time.Date(2007, time.January, 0, 0, 0, 0, 0, time.UTC)
-	// epoch = time.Date(2037, time.January, 0, 0, 0, 0, 0, time.UTC)
 )
 
 func main() {
@@ -49,7 +45,7 @@ func main() {
 	log.Printf("Found %d entries in watt\n", totalCount)
 
 	// create a read-only channel for source Entry(s)
-	src := readAll()
+	src := source.ReadAll(db)
 	// consume the channel with this sink
 	writeAll(src)
 }
