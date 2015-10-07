@@ -2,8 +2,8 @@ package main
 
 import (
 	"database/sql"
-	// "github.com/daneroo/go-mysqltest/flux"
-	"github.com/daneroo/go-mysqltest/sink"
+	"github.com/daneroo/go-mysqltest/flux"
+	// "github.com/daneroo/go-mysqltest/sink"
 	"github.com/daneroo/go-mysqltest/source"
 	. "github.com/daneroo/go-mysqltest/util"
 	_ "github.com/go-sql-driver/mysql"
@@ -30,9 +30,9 @@ func main() {
 
 	// consume the channel with this sink
 	// sink.IgnoreAll(db, src)
-	sink.WriteAll(db, src)
+	// sink.WriteAll(db, src)
 	// flux.IgnoreAll(src)
-	// flux.WriteAll(src)
+	flux.WriteAll(src)
 }
 
 func setup() *sql.DB {
