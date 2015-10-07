@@ -1,0 +1,28 @@
+
+# Backing services: mysql, and influxdb
+
+# Environment variables specified in environment override these values.
+
+    # -e MYSQL_USER=${DB_USER} 
+    # -e MYSQL_PASSWORD=${DB_PASS} 
+    # -e MYSQL_DATABASE=${DB_NAME} 
+    # -e MYSQL_ALLOW_EMPTY_PASSWORD=yes ${DBIMAGE})
+
+
+teddb:
+  image: mysql 
+  hostname: teddb
+  env_file:
+    - ./MYSQL.env
+  ports: 
+    - 3306:3306  # not exposed in prod
+
+
+tedflux:
+  image: tutum/influxdb
+  hostname: tedflux
+  environment:
+    - PRE_CREATE_DB=ted
+  ports: 
+    - "8083:8083"
+    - "8086:8086"

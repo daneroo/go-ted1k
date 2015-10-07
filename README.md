@@ -3,7 +3,10 @@
 ## Todo
 
 - Cleanup docker script(s) : add start-db.sh
-- Batch writes to ted/watt2
+- docker-compose (no volumes)
+- Rewrite using `sqlx`
+- Sink for InfluxDB
+- Batch writes to ted/watt2 - Reader or LOAD INFILE
 
 ## Vendoring
 See this [Go/Wiki for reference](https://github.com/golang/go/wiki/PackageManagementTools)
@@ -13,6 +16,12 @@ We are using [`govend`](https://github.com/gophersaurus/govend) as listed.
 
 To install `govend`, we did a standard `go get -u github.com/gophersaurus/govend`, and makde sure our `GOPATH` was set and `$GOPATH/bin` is on our `$PATH`. also `GO15VENDOREXPERIMENT=1` needs to be set.
 
+## Docker
+
+These will be data volumes..
+
+    docker create -v /data --name teddbdata mysql /bin/true
+    docker create -v /data --name tedfluxdata tutum/influxdb /bin/true
 
 ## Timing of MySQL reads
 For timing of MySQL selects with maxCount results
@@ -25,7 +34,9 @@ From goedel to cantor
 
 From Godel to local docker:
 
-	3600*24: 294s,290s
+    3600*24: 294s,290s  (Read-only)
+	10000: --s  (Batch Writes)
+
 
 
 ## MySQL inserts are ridiculously slow

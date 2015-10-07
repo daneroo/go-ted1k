@@ -6,6 +6,7 @@ import (
 	"github.com/daneroo/go-mysqltest/source"
 	. "github.com/daneroo/go-mysqltest/util"
 	_ "github.com/go-sql-driver/mysql"
+	// "github.com/jmoiron/sqlx"
 	"log"
 )
 
@@ -39,8 +40,8 @@ func main() {
 	// create a read-only channel for source Entry(s)
 	src := source.ReadAll(db)
 	// consume the channel with this sink
-	sink.IgnoreAll(db, src)
-	// sink.WriteAll(db, src)
+	// sink.IgnoreAll(db, src)
+	sink.WriteAll(db, src)
 }
 
 func createCopyTable(db *sql.DB) {
