@@ -40,7 +40,7 @@ func ReadAll(db *sql.DB) <-chan Entry {
 }
 
 func oneChunk(db *sql.DB, startTimeExcl time.Time, maxCountPerChunk int, src chan<- Entry) (time.Time, int) {
-	defer TimeTrack(time.Now(), "oneChunk", maxCountPerChunk)
+	// defer TimeTrack(time.Now(), "oneChunk", maxCountPerChunk)
 	sql := "SELECT stamp,watt FROM watt where stamp>? ORDER BY stamp ASC LIMIT ?"
 	// sql := "SELECT stamp,watt FROM watt where stamp<? ORDER BY stamp DESC LIMIT ?"
 	rows, err := db.Query(sql, startTimeExcl, maxCountPerChunk)
@@ -72,6 +72,6 @@ func oneChunk(db *sql.DB, startTimeExcl time.Time, maxCountPerChunk int, src cha
 	if chunkRowCount != 0 {
 		avgWatt /= chunkRowCount
 	}
-	log.Printf("average between (%v - %v]: %v (%v)", startTimeExcl, lastStamp, avgWatt, chunkRowCount)
+	// log.Printf("average between (%v - %v]: %v (%v)", startTimeExcl, lastStamp, avgWatt, chunkRowCount)
 	return lastStamp, chunkRowCount
 }

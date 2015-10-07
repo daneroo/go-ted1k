@@ -10,7 +10,8 @@ import (
 )
 
 const (
-	insertSql = "INSERT IGNORE INTO watt2 (stamp, watt) VALUES (?,?)"
+	insertSql      = "INSERT IGNORE INTO watt2 (stamp, watt) VALUES (?,?)"
+	writeBatchSize = 10000
 )
 
 var (
@@ -23,18 +24,20 @@ func IgnoreAll(db *sql.DB, src <-chan Entry) {
 	count := 0
 	for entry := range src {
 		count++
-		if (count % 1000000) == 0 {
+		if (count % writeBatchSize) == 0 {
 			log.Printf("Ignore::checkpoint at %d records %v", count, entry.Stamp)
 		}
 	}
 	TimeTrack(start, "sink.IgnoreAll", count)
 }
 func WriteAll(db *sql.DB, src <-chan Entry) {
+	start := time.Now()
 	var err error
 	tx, err = db.Begin()
 	Checkerr(err)
 	insertStmt, err = tx.Prepare(insertSql)
 	Checkerr(err)
+	log.Println("Prepared insert statement (in a transaction)")
 
 	count := 0
 	for entry := range src {
@@ -43,7 +46,7 @@ func WriteAll(db *sql.DB, src <-chan Entry) {
 		// log.Printf("Write %v, %d  (%d)\n", entry.stamp, entry.watt, count)
 
 		count++
-		if (count % 10000) == 0 {
+		if (count % writeBatchSize) == 0 {
 			log.Printf("Write::checkpoint at %d records %v", count, entry.Stamp)
 			commitAndBeginTx(db)
 		}
@@ -52,10 +55,12 @@ func WriteAll(db *sql.DB, src <-chan Entry) {
 
 	// final Close
 	insertStmt.Close()
+
 	// final Tx.commit
 	err = tx.Commit() // not quite right..
 	Checkerr(err)
 
+	TimeTrack(start, "sink.WriteAll", count)
 }
 
 func commitAndBeginTx(db *sql.DB) {

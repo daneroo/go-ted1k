@@ -2,10 +2,12 @@ package main
 
 import (
 	"database/sql"
+	// "github.com/daneroo/go-mysqltest/flux"
 	"github.com/daneroo/go-mysqltest/sink"
 	"github.com/daneroo/go-mysqltest/source"
 	. "github.com/daneroo/go-mysqltest/util"
 	_ "github.com/go-sql-driver/mysql"
+	// "os"
 	// "github.com/jmoiron/sqlx"
 	"log"
 )
@@ -17,16 +19,28 @@ const (
 
 func main() {
 
+	// flux.Try()
+	// os.Exit(0)
+
+	db := setup()
+	defer db.Close()
+
+	// create a read-only channel for source Entry(s)
+	src := source.ReadAll(db)
+
+	// consume the channel with this sink
+	// sink.IgnoreAll(db, src)
+	sink.WriteAll(db, src)
+	// flux.IgnoreAll(src)
+	// flux.WriteAll(src)
+}
+
+func setup() *sql.DB {
 	db, err := sql.Open("mysql", myCredentials)
 	Checkerr(err)
-	defer db.Close()
-	log.Println("Survived Opening")
+	log.Println("Connected to MySQL")
 
 	createCopyTable(db)
-
-	// insertStmt, err = db.Prepare(insertSql)
-	// defer insertStmt.Close()
-	log.Println("Prepared insert statement (in a transaction)")
 
 	var totalCount int
 	row := db.QueryRow("SELECT COUNT(*) FROM watt")
@@ -37,11 +51,7 @@ func main() {
 	}
 	log.Printf("Found %d entries in watt\n", totalCount)
 
-	// create a read-only channel for source Entry(s)
-	src := source.ReadAll(db)
-	// consume the channel with this sink
-	// sink.IgnoreAll(db, src)
-	sink.WriteAll(db, src)
+	return db
 }
 
 func createCopyTable(db *sql.DB) {
