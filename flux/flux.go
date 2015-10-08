@@ -20,7 +20,7 @@ const (
 	MyPort = 8086
 	MyDB   = "ted"
 	// MyMeasurement = "watt"
-	writeBatchSize = 500
+	writeBatchSize = 3600 * 24 //10000
 )
 
 func IgnoreAll(src <-chan Entry) {
@@ -54,8 +54,10 @@ func WriteAll(src <-chan Entry) {
 			writeEntries(con, entries)
 			entries = make([]Entry, 0, writeBatchSize)
 		}
-
 	}
+	log.Printf("Write::checkpoint at %d records", count)
+	log.Printf(" entries len:%d cap %d", len(entries), cap(entries))
+	writeEntries(con, entries)
 	TimeTrack(start, "flux.WriteAll", count)
 }
 

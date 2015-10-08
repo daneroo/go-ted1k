@@ -16,12 +16,21 @@ We are using [`govend`](https://github.com/gophersaurus/govend) as listed.
 
 To install `govend`, we did a standard `go get -u github.com/gophersaurus/govend`, and makde sure our `GOPATH` was set and `$GOPATH/bin` is on our `$PATH`. also `GO15VENDOREXPERIMENT=1` needs to be set.
 
+## InfluxDB
+
+	select mean(value)*24/1000 from watt where time > '2008-01-01' and time < '2016-01-01' group by time(7d)
+
+Continuous Queries are not appropriate for historical data loading.
+I should implement my own select .. into (in go), using tablenames as in mysql
+
+	select mean(value)*24/1000 into kwh_1d from watt where time > '2015-09-01' group by time(1d)
+
 ## Docker
+We have abandoned data volumes for now.
+`docker-compose` command brings up MySQL and InfluxDB instances, and the `restore` script restores a MySQL snapshot/
 
-These will be data volumes..
-
-    docker create -v /data --name teddbdata mysql /bin/true
-    docker create -v /data --name tedfluxdata tutum/influxdb /bin/true
+	docker-compose up -d
+	./restore-db.sh
 
 ## Timing of MySQL reads
 For timing of MySQL selects with maxCount results
