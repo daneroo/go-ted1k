@@ -4,7 +4,6 @@ import (
 	. "github.com/daneroo/go-mysqltest/types"
 	. "github.com/daneroo/go-mysqltest/util"
 	"github.com/influxdb/influxdb/client"
-	"math/rand"
 	"time"
 )
 
@@ -20,7 +19,7 @@ const (
 	MyPort = 8086
 	MyDB   = "ted"
 	// MyMeasurement = "watt"
-	writeBatchSize = 3600 * 24 //10000
+	writeBatchSize = 3600 * 24
 )
 
 func IgnoreAll(src <-chan Entry) {
@@ -35,8 +34,12 @@ func IgnoreAll(src <-chan Entry) {
 	TimeTrack(start, "flux.IgnoreAll", count)
 }
 
+// Consume the Entry (receive only) channel
+// preforming batched writes (of size writeBatchSize)
+// Also performs progress logging (and timing)
 func WriteAll(src <-chan Entry) {
 	start := time.Now()
+	startBatch := time.Now() // timer for internal (chunk) loop iterations
 	count := 0
 
 	con, err := connect()
@@ -44,23 +47,52 @@ func WriteAll(src <-chan Entry) {
 	// defer close?
 
 	var entries = make([]Entry, 0, writeBatchSize)
-
 	for entry := range src {
 		entries = append(entries, entry)
 		count++
 		if len(entries) == cap(entries) {
-			log.Printf("Write::checkpoint at %d records %v", count, entry.Stamp)
-			log.Printf(" entries len:%d cap %d", len(entries), cap(entries))
-			writeEntries(con, entries)
-			entries = make([]Entry, 0, writeBatchSize)
+			entries = flush(con, entries)
+			TimeTrack(startBatch, "flux.WriteAll.checkpoint+", cap(entries))
+			startBatch = time.Now()
 		}
 	}
-	log.Printf("Write::checkpoint at %d records", count)
-	log.Printf(" entries len:%d cap %d", len(entries), cap(entries))
-	writeEntries(con, entries)
+	_ = flush(con, entries)
 	TimeTrack(start, "flux.WriteAll", count)
 }
 
+// Write out the entries to con, and reallocate a new empty slice
+func flush(con *client.Client, entries []Entry) []Entry {
+	writeEntries(con, entries)
+	return make([]Entry, 0, writeBatchSize)
+}
+
+// Perform the batch write
+func writeEntries(con *client.Client, entries []Entry) {
+	var (
+		pts = make([]client.Point, len(entries))
+	)
+
+	for i, entry := range entries {
+		pts[i] = client.Point{
+			Measurement: "watt",
+			Fields: map[string]interface{}{
+				"value": entry.Watt,
+			},
+			Time: entry.Stamp,
+		}
+		// fmt.Printf("point[%d]: %v\n", i, pts[i])
+	}
+
+	bps := client.BatchPoints{
+		Points:          pts,
+		Database:        MyDB,
+		RetentionPolicy: "default",
+	}
+	_, err := con.Write(bps)
+	Checkerr(err)
+}
+
+// Create the client connection
 func connect() (*client.Client, error) {
 	u, err := url.Parse(fmt.Sprintf("http://%s:%d", MyHost, MyPort))
 	if err != nil {
@@ -82,67 +114,7 @@ func connect() (*client.Client, error) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	log.Printf("Connected to %v, %s, ping:%v %v", u, ver, dur)
+	log.Printf("Connected to %v, InfluxDB:%s, ping:%v", u, ver, dur)
 
 	return con, nil
-}
-
-func Try() {
-	log.Println("Trying influxdb")
-
-	con, err := connect()
-	Checkerr(err)
-	// writePoints(con)
-
-	entries := makeEntries()
-	writeEntries(con, entries)
-}
-
-func makeEntries() []Entry {
-	const (
-		wattRange  = 1000
-		sampleSize = 10
-	)
-	var entries = make([]Entry, sampleSize)
-	rand.Seed(42)
-	for i := 0; i < sampleSize; i++ {
-		entries[i] = Entry{
-			Watt:  rand.Intn(wattRange),
-			Stamp: time.Now().Round(time.Millisecond),
-			// Stamp: client.SetPrecision(time.Now(), "ms"),
-		}
-		fmt.Printf("entry[%d]: %v\n", i, entries[i])
-		time.Sleep(100 * time.Millisecond)
-	}
-	log.Println("Done making Points")
-	return entries
-}
-
-func writeEntries(con *client.Client, entries []Entry) {
-	log.Printf("Writing %d entries\n", len(entries))
-	var (
-		pts = make([]client.Point, len(entries))
-	)
-
-	for i, entry := range entries {
-		pts[i] = client.Point{
-			Measurement: "watt",
-			Fields: map[string]interface{}{
-				"value": entry.Watt,
-			},
-			Time: entry.Stamp,
-		}
-		// fmt.Printf("point[%d]: %v\n", i, pts[i])
-	}
-
-	bps := client.BatchPoints{
-		Points:          pts,
-		Database:        MyDB,
-		RetentionPolicy: "default",
-	}
-	response, err := con.Write(bps)
-	if err != nil {
-		log.Fatal(err)
-	}
-	log.Printf("Write response: %v\n", response)
 }

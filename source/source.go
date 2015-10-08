@@ -11,8 +11,9 @@ import (
 
 var (
 	maxCountPerChunk = 3600 * 24
+	epoch            = time.Date(2015, time.July, 1, 0, 0, 0, 0, time.UTC)
 	// epoch            = time.Date(2015, time.September, 27, 0, 0, 0, 0, time.UTC)
-	epoch = time.Date(2007, time.January, 0, 0, 0, 0, 0, time.UTC)
+	// epoch = time.Date(2007, time.January, 0, 0, 0, 0, 0, time.UTC)
 	// epoch = time.Date(2037, time.January, 0, 0, 0, 0, 0, time.UTC)
 )
 
@@ -21,6 +22,7 @@ func ReadAll(db *sql.DB) <-chan Entry {
 	src := make(chan Entry)
 
 	go func() {
+		start := time.Now()
 		rowCount := 0
 		startTimeExcl := epoch
 		for {
@@ -33,13 +35,14 @@ func ReadAll(db *sql.DB) <-chan Entry {
 			}
 		}
 		close(src)
-		log.Printf("Fetched a total of %d rows", rowCount)
+		TimeTrack(start, "source.ReadAll", rowCount)
 	}()
 
 	return src
 }
 
 func oneChunk(db *sql.DB, startTimeExcl time.Time, maxCountPerChunk int, src chan<- Entry) (time.Time, int) {
+	start := time.Now()
 	// defer TimeTrack(time.Now(), "oneChunk", maxCountPerChunk)
 	sql := "SELECT stamp,watt FROM watt where stamp>? ORDER BY stamp ASC LIMIT ?"
 	// sql := "SELECT stamp,watt FROM watt where stamp<? ORDER BY stamp DESC LIMIT ?"
@@ -72,6 +75,6 @@ func oneChunk(db *sql.DB, startTimeExcl time.Time, maxCountPerChunk int, src cha
 	if chunkRowCount != 0 {
 		avgWatt /= chunkRowCount
 	}
-	// log.Printf("average between (%v - %v]: %v (%v)", startTimeExcl, lastStamp, avgWatt, chunkRowCount)
+	TimeTrack(start, "source.ReadAll.checkpoint", chunkRowCount)
 	return lastStamp, chunkRowCount
 }
