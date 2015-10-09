@@ -2,7 +2,9 @@ package tsm1_test
 
 import (
 	"math"
+	"reflect"
 	"testing"
+	"testing/quick"
 
 	"github.com/influxdb/influxdb/tsdb/engine/tsm1"
 )
@@ -181,6 +183,46 @@ func Test_Int64Encoder_Uncompressed(t *testing.T) {
 	}
 }
 
+func Test_Int64Encoder_NegativeUncompressed(t *testing.T) {
+	values := []int64{
+		-2352281900722994752, 1438442655375607923, -4110452567888190110,
+		-1221292455668011702, -1941700286034261841, -2836753127140407751,
+		1432686216250034552, 3663244026151507025, -3068113732684750258,
+		-1949953187327444488, 3713374280993588804, 3226153669854871355,
+		-2093273755080502606, 1006087192578600616, -2272122301622271655,
+		2533238229511593671, -4450454445568858273, 2647789901083530435,
+		2761419461769776844, -1324397441074946198, -680758138988210958,
+		94468846694902125, -2394093124890745254, -2682139311758778198,
+	}
+	enc := tsm1.NewInt64Encoder()
+	for _, v := range values {
+		enc.Write(v)
+	}
+
+	b, err := enc.Bytes()
+	if err != nil {
+		t.Fatalf("expected error: %v", err)
+	}
+
+	dec := tsm1.NewInt64Decoder(b)
+
+	i := 0
+	for dec.Next() {
+		if i > len(values) {
+			t.Fatalf("read too many values: got %v, exp %v", i, len(values))
+		}
+
+		if values[i] != dec.Read() {
+			t.Fatalf("read value %d mismatch: got %v, exp %v", i, dec.Read(), values[i])
+		}
+		i += 1
+	}
+
+	if i != len(values) {
+		t.Fatalf("failed to read enough values: got %v, exp %v", i, len(values))
+	}
+}
+
 func Test_Int64Encoder_AllNegative(t *testing.T) {
 	enc := tsm1.NewInt64Encoder()
 	values := []int64{
@@ -208,6 +250,44 @@ func Test_Int64Encoder_AllNegative(t *testing.T) {
 		}
 		i += 1
 	}
+
+	if i != len(values) {
+		t.Fatalf("failed to read enough values: got %v, exp %v", i, len(values))
+	}
+
+}
+
+func Test_Int64Encoder_Quick(t *testing.T) {
+	quick.Check(func(values []int64) bool {
+		// Write values to encoder.
+		enc := tsm1.NewInt64Encoder()
+		for _, v := range values {
+			enc.Write(v)
+		}
+
+		// Retrieve encoded bytes from encoder.
+		buf, err := enc.Bytes()
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// Read values out of decoder.
+		got := make([]int64, 0, len(values))
+		dec := tsm1.NewInt64Decoder(buf)
+		for dec.Next() {
+			if err := dec.Error(); err != nil {
+				t.Fatal(err)
+			}
+			got = append(got, dec.Read())
+		}
+
+		// Verify that input and output values match.
+		if !reflect.DeepEqual(values, got) {
+			t.Fatalf("mismatch:\n\nexp=%+v\n\ngot=%+v\n\n", values, got)
+		}
+
+		return true
+	}, nil)
 }
 
 func BenchmarkInt64Encoder(b *testing.B) {

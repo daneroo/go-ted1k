@@ -2,7 +2,7 @@ package tsm1
 
 // Int64 encoding uses two different strategies depending on the range of values in
 // the uncompressed data.  Encoded values are first encoding used zig zag encoding.
-// This interleaves postiive and negative integers across a range of positive integers.
+// This interleaves positive and negative integers across a range of positive integers.
 //
 // For example, [-2,-1,0,1] becomes [3,1,0,2]. See
 // https://developers.google.com/protocol-buffers/docs/encoding?hl=en#signed-integers
@@ -173,6 +173,10 @@ func (d *int64Decoder) decodePacked() {
 }
 
 func (d *int64Decoder) decodeUncompressed() {
+	if len(d.bytes) == 0 {
+		return
+	}
+
 	d.values[0] = binary.BigEndian.Uint64(d.bytes[0:8])
 	d.i = 0
 	d.n = 1

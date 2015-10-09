@@ -13,6 +13,8 @@
 - [#4265](https://github.com/influxdb/influxdb/pull/4265): Add statistics for Hinted-Handoff
 - [#4284](https://github.com/influxdb/influxdb/pull/4284): Add exponential backoff for hinted-handoff failures
 - [#4310](https://github.com/influxdb/influxdb/pull/4310): Support dropping non-Raft nodes. Work mostly by @corylanou
+- [#4348](https://github.com/influxdb/influxdb/pull/4348): Public ApplyTemplate function for graphite parser.
+- [#4178](https://github.com/influxdb/influxdb/pull/4178): Support fields in graphite parser. Thanks @roobert!
 
 ### Bugfixes
 - [#4166](https://github.com/influxdb/influxdb/pull/4166): Fix parser error on invalid SHOW
@@ -41,6 +43,10 @@
 - [#4342](https://github.com/influxdb/influxdb/pull/4342): Fix mixing aggregates and math with non-aggregates. Thanks @kostya-sh.
 - [#4349](https://github.com/influxdb/influxdb/issues/4349): If HH can't unmarshal a block, skip that block.
 - [#4354](https://github.com/influxdb/influxdb/pull/4353): Fully lock node queues during hinted handoff. Fixes one cause of missing data on clusters.
+- [#4357](https://github.com/influxdb/influxdb/issues/4357): Fix similar float values encoding overflow Thanks @dgryski!
+- [#4344](https://github.com/influxdb/influxdb/issues/4344): Make client.Write default to client.precision if none is given.
+- [#3429](https://github.com/influxdb/influxdb/issues/3429)): Incorrect parsing of regex containing '/'
+- [#4374](https://github.com/influxdb/influxdb/issues/4374)): Add tsm1 quickcheck tests
 
 ## v0.9.4 [2015-09-14]
 

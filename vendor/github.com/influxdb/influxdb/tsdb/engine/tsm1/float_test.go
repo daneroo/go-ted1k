@@ -1,13 +1,14 @@
 package tsm1_test
 
 import (
+	"reflect"
 	"testing"
+	"testing/quick"
 
 	"github.com/influxdb/influxdb/tsdb/engine/tsm1"
 )
 
 func TestFloatEncoder_Simple(t *testing.T) {
-
 	// Example from the paper
 	s := tsm1.NewFloatEncoder()
 
@@ -46,6 +47,49 @@ func TestFloatEncoder_Simple(t *testing.T) {
 		24,
 		24,
 		24,
+	}
+
+	for _, w := range want {
+		if !it.Next() {
+			t.Fatalf("Next()=false, want true")
+		}
+		vv := it.Values()
+		if w != vv {
+			t.Errorf("Values()=(%v), want (%v)\n", vv, w)
+		}
+	}
+
+	if it.Next() {
+		t.Fatalf("Next()=true, want false")
+	}
+
+	if err := it.Error(); err != nil {
+		t.Errorf("it.Error()=%v, want nil", err)
+	}
+}
+
+func TestFloatEncoder_SimilarFloats(t *testing.T) {
+	s := tsm1.NewFloatEncoder()
+	want := []float64{
+		6.00065e+06,
+		6.000656e+06,
+		6.000657e+06,
+
+		6.000659e+06,
+		6.000661e+06,
+	}
+
+	for _, v := range want {
+		s.Push(v)
+	}
+
+	s.Finish()
+
+	b := s.Bytes()
+
+	it, err := tsm1.NewFloatDecoder(b)
+	if err != nil {
+		t.Fatalf("unexpected error creating float decoder: %v", err)
 	}
 
 	for _, w := range want {
@@ -130,6 +174,34 @@ func TestFloatEncoder_Roundtrip(t *testing.T) {
 	if err := it.Error(); err != nil {
 		t.Errorf("it.Error()=%v, want nil", err)
 	}
+}
+
+func Test_FloatEncoder_Quick(t *testing.T) {
+	quick.Check(func(values []float64) bool {
+		// Write values to encoder.
+		enc := tsm1.NewFloatEncoder()
+		for _, v := range values {
+			enc.Push(v)
+		}
+		enc.Finish()
+
+		// Read values out of decoder.
+		got := make([]float64, 0, len(values))
+		dec, err := tsm1.NewFloatDecoder(enc.Bytes())
+		if err != nil {
+			t.Fatal(err)
+		}
+		for dec.Next() {
+			got = append(got, dec.Values())
+		}
+
+		// Verify that input and output values match.
+		if !reflect.DeepEqual(values, got) {
+			t.Fatalf("mismatch:\n\nexp=%+v\n\ngot=%+v\n\n", values, got)
+		}
+
+		return true
+	}, nil)
 }
 
 func BenchmarkFloatEncoder(b *testing.B) {
