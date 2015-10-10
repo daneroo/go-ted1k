@@ -5,7 +5,6 @@ import (
 	. "github.com/daneroo/go-mysqltest/util"
 	"github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
-	"log"
 	"time"
 )
 
@@ -28,6 +27,7 @@ func ReadAll(db *sqlx.DB) <-chan Entry {
 		startTime := epoch
 		for {
 			lastStamp, rowCount := readRows(db, startTime, maxRows, src)
+
 			totalCount += rowCount
 			startTime = lastStamp
 

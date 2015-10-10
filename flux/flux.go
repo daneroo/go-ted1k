@@ -52,7 +52,7 @@ func WriteAll(src <-chan Entry) {
 		count++
 		if len(entries) == cap(entries) {
 			entries = flush(con, entries)
-			TimeTrack(startBatch, "flux.WriteAll.checkpoint+", cap(entries))
+			TimeTrack(startBatch, "flux.WriteAll.checkpoint", cap(entries))
 			startBatch = time.Now()
 		}
 	}
