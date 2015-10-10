@@ -10,7 +10,8 @@ import (
 )
 
 var (
-	maxCountPerChunk = 3600 * 24
+	// maximum number of rows read in one iteration
+	maxRows = 3600 * 24
 	// epoch            = time.Date(2015, time.July, 1, 0, 0, 0, 0, time.UTC)
 	epoch = time.Date(2015, time.September, 27, 0, 0, 0, 0, time.UTC)
 	// epoch = time.Date(2007, time.January, 0, 0, 0, 0, 0, time.UTC)
@@ -23,33 +24,39 @@ func ReadAll(db *sqlx.DB) <-chan Entry {
 
 	go func() {
 		start := time.Now()
-		rowCount := 0
-		startTimeExcl := epoch
+		totalCount := 0
+		startTime := epoch
 		for {
-			chunkRowCount := 0
-			startTimeExcl, chunkRowCount = oneChunk(db, startTimeExcl, maxCountPerChunk, src)
-			rowCount += chunkRowCount
+			lastStamp, rowCount := readRows(db, startTime, maxRows, src)
+			totalCount += rowCount
+			startTime = lastStamp
 
-			if chunkRowCount == 0 {
+			// break if there are no more rows.
+			if rowCount == 0 {
 				break
 			}
 		}
+		// close the channel
 		close(src)
-		TimeTrack(start, "source.ReadAll", rowCount)
+		TimeTrack(start, "source.ReadAll", totalCount)
 	}()
 
 	return src
 }
 
-func oneChunk(db *sqlx.DB, startTimeExcl time.Time, maxCountPerChunk int, src chan<- Entry) (time.Time, int) {
-	log.Println("one chunk")
+// readRows reads a set of entries and sends them into the src channel.
+// Returned rows starts at stamp > startTime (does not include the startTime bound).
+// A maximum of maxRows rows are read.
+// Return the maximum time stamp read, as well as the number of rows.
+func readRows(db *sqlx.DB, startTime time.Time, maxRows int, src chan<- Entry) (time.Time, int) {
 	start := time.Now()
 	sql := "SELECT stamp,watt FROM watt where stamp>? ORDER BY stamp ASC LIMIT ?"
 
-	rows, err := db.Query(sql, startTimeExcl, maxCountPerChunk)
+	rows, err := db.Query(sql, startTime, maxRows)
+	defer rows.Close()
 	Checkerr(err)
 
-	chunkRowCount := 0
+	count := 0
 	var lastStamp time.Time
 	for rows.Next() {
 		var stamp mysql.NullTime
@@ -58,12 +65,13 @@ func oneChunk(db *sqlx.DB, startTimeExcl time.Time, maxCountPerChunk int, src ch
 		err = rows.Scan(&stamp, &watt)
 		Checkerr(err)
 
-		chunkRowCount++
+		// count even null stamp rows (which should never happen)
+		count++
 		if stamp.Valid {
 			lastStamp = stamp.Time
 			src <- Entry{Stamp: stamp.Time, Watt: watt}
 		}
 	}
-	TimeTrack(start, "source.ReadAll.checkpoint", chunkRowCount)
-	return lastStamp, chunkRowCount
+	TimeTrack(start, "source.ReadAll.checkpoint", count)
+	return lastStamp, count
 }

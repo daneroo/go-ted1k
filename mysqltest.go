@@ -23,8 +23,8 @@ func main() {
 	src := source.ReadAll(db)
 
 	// consume the channel with this sink
-	// sink.IgnoreAll(db, src)
-	sink.WriteAll(db, src)
+	sink.IgnoreAll(db, src)
+	// sink.WriteAll(db, src)
 	// flux.IgnoreAll(src)
 	// flux.WriteAll(src)
 }
