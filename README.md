@@ -2,7 +2,6 @@
 
 ## Todo
 
-- Timing for channel comms.
 - Batch writes to ted/watt2 - Reader or LOAD INFILE
 - Refactor Progress (TimeTrack...) Interceptor channel ?
 
