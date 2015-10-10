@@ -2,11 +2,8 @@
 
 ## Todo
 
-- Cleanup docker script(s) : add start-db.sh
-- docker-compose (no volumes)
-- Rewrite using `sqlx`
-- Sink for InfluxDB
 - Batch writes to ted/watt2 - Reader or LOAD INFILE
+- Refactor Progress (TimeTrack...) Interceptor channel ?
 
 ## Vendoring
 See this [Go/Wiki for reference](https://github.com/golang/go/wiki/PackageManagementTools)
@@ -40,6 +37,9 @@ From goedel to cantor
 	3600: 989s
 	3600*24: 357s
 	3600*24*10: 324s
+
+From Dirac to local docker:
+    3600*24: 605s  (Read-only)
 
 From Godel to local docker:
 
