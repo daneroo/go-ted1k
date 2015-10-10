@@ -2,6 +2,7 @@
 
 ## Todo
 
+- Timing for channel comms.
 - Batch writes to ted/watt2 - Reader or LOAD INFILE
 - Refactor Progress (TimeTrack...) Interceptor channel ?
 
@@ -47,7 +48,7 @@ From Dirac to local docker:
 
 From Godel to local docker:
 
-    3600*24: 294s,290s  (Read-only)
+    3600*24: 294s,290s  (Read-only) Now 412s,405s, with IgnoreAll
 	10000: --s  (Batch Writes)
 
 

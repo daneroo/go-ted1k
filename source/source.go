@@ -11,9 +11,9 @@ import (
 var (
 	// maximum number of rows read in one iteration
 	maxRows = 3600 * 24
-	// epoch            = time.Date(2015, time.July, 1, 0, 0, 0, 0, time.UTC)
-	epoch = time.Date(2015, time.September, 27, 0, 0, 0, 0, time.UTC)
-	// epoch = time.Date(2007, time.January, 0, 0, 0, 0, 0, time.UTC)
+	epoch   = time.Date(2015, time.July, 1, 0, 0, 0, 0, time.UTC)
+	// epoch   = time.Date(2015, time.September, 27, 0, 0, 0, 0, time.UTC)
+	// epoch   = time.Date(2007, time.January, 0, 0, 0, 0, 0, time.UTC)
 	// epoch = time.Date(2037, time.January, 0, 0, 0, 0, 0, time.UTC)
 )
 

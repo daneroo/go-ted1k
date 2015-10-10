@@ -24,7 +24,7 @@ func IgnoreAll(db *sqlx.DB, src <-chan Entry) {
 	count := 0
 	for entry := range src {
 		count++
-		if (count % writeBatchSize) == 0 {
+		if (count % 1e6) == 0 {
 			log.Printf("Ignore::checkpoint at %d records %v", count, entry.Stamp)
 		}
 	}
