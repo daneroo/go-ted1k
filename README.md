@@ -17,6 +17,10 @@ To install `govend`, we did a standard `go get -u github.com/gophersaurus/govend
 
 	select mean(value)*24/1000 from watt where time > '2008-01-01' and time < '2016-01-01' group by time(7d)
 
+### Downsampled time series
+
+Truncate for D,M,Y: http://play.golang.org/p/PUNNHq9sh6
+
 Continuous Queries are not appropriate for historical data loading.
 I should implement my own select .. into (in go), using tablenames as in mysql
 
