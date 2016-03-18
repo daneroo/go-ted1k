@@ -1,10 +1,11 @@
 package flux
 
 import (
+	"time"
+
 	. "github.com/daneroo/go-mysqltest/types"
 	. "github.com/daneroo/go-mysqltest/util"
 	"github.com/influxdb/influxdb/client"
-	"time"
 )
 
 import (
@@ -21,18 +22,6 @@ const (
 	// MyMeasurement = "watt"
 	writeBatchSize = 3600 * 24
 )
-
-func IgnoreAll(src <-chan Entry) {
-	start := time.Now()
-	count := 0
-	for entry := range src {
-		count++
-		if (count % writeBatchSize) == 0 {
-			log.Printf("Ignore::checkpoint at %d records %v", count, entry.Stamp)
-		}
-	}
-	TimeTrack(start, "flux.IgnoreAll", count)
-}
 
 // Consume the Entry (receive only) channel
 // preforming batched writes (of size writeBatchSize)

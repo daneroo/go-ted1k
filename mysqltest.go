@@ -2,12 +2,13 @@ package main
 
 import (
 	// "github.com/daneroo/go-mysqltest/flux"
-	"github.com/daneroo/go-mysqltest/sink"
+	"log"
+
+	"github.com/daneroo/go-mysqltest/ignore"
 	"github.com/daneroo/go-mysqltest/source"
 	. "github.com/daneroo/go-mysqltest/util"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
-	"log"
 )
 
 const (
@@ -22,10 +23,12 @@ func main() {
 	// create a read-only channel for source Entry(s)
 	src := source.ReadAll(db)
 
+	// ignore the output
+	i, _ := ignore.New(10 * ignore.BatchByDay)
+	i.Write(src)
+
 	// consume the channel with this sink
-	sink.IgnoreAll(db, src)
 	// sink.WriteAll(db, src)
-	// flux.IgnoreAll(src)
 	// flux.WriteAll(src)
 }
 

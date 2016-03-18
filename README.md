@@ -43,6 +43,7 @@ From goedel to cantor
 	3600*24*10: 324s
 
 From Dirac to local docker:
+
     3600*24: 605s  (Read-only)
 
 From Godel to local docker:

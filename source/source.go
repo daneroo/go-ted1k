@@ -1,11 +1,12 @@
 package source
 
 import (
+	"time"
+
 	. "github.com/daneroo/go-mysqltest/types"
 	. "github.com/daneroo/go-mysqltest/util"
 	"github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
-	"time"
 )
 
 var (
@@ -13,7 +14,7 @@ var (
 	maxRows = 3600 * 24
 	epoch   = time.Date(2015, time.July, 1, 0, 0, 0, 0, time.UTC)
 	// epoch   = time.Date(2015, time.September, 27, 0, 0, 0, 0, time.UTC)
-	// epoch   = time.Date(2007, time.January, 0, 0, 0, 0, 0, time.UTC)
+	// epoch = time.Date(2007, time.January, 0, 0, 0, 0, 0, time.UTC)
 	// epoch = time.Date(2037, time.January, 0, 0, 0, 0, 0, time.UTC)
 )
 

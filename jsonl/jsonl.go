@@ -6,12 +6,11 @@ import (
 
 	. "github.com/daneroo/go-mysqltest/types"
 	. "github.com/daneroo/go-mysqltest/util"
-	_ "github.com/go-sql-driver/mysql"
-	"github.com/jmoiron/sqlx"
+	"github.com/daneroo/go-mysqltest/vendor/github.com/jmoiron/sqlx"
 )
 
 const (
-	insertSql      = "INSERT IGNORE INTO watt2 (stamp, watt) VALUES (?,?)"
+	// insertSql      = "INSERT IGNORE INTO watt2 (stamp, watt) VALUES (?,?)"
 	writeBatchSize = 12 * 3600
 )
 
