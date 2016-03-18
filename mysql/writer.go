@@ -43,7 +43,7 @@ func (w *Writer) Write(src <-chan Entry) {
 
 	// commit but don't start another transaction
 	w.commitAndBeginTx(false)
-	TimeTrack(start, "sink.WriteAll", count)
+	TimeTrack(start, "mysql.Write", count)
 }
 
 // close stmt, commit, then start a tx, and prepare stmt
@@ -51,10 +51,12 @@ func (w *Writer) commitAndBeginTx(beginAgain bool) {
 	if w.insertStmt != nil {
 		w.insertStmt.Close()
 		w.insertStmt = nil
+		log.Println("Closed statement")
 	}
 	if w.tx != nil {
 		w.tx.Commit()
 		w.tx = nil
+		log.Println("Commited transaction")
 	}
 	if beginAgain {
 		var err error

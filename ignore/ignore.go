@@ -28,10 +28,11 @@ func New(batch int) (*Ignorer, error) {
 func (i Ignorer) Write(src <-chan Entry) {
 	start := time.Now()
 	count := 0
-	for entry := range src {
+	for _ = range src {
 		count++
 		if (count % i.batch) == 0 {
-			log.Printf("ignore.Write::checkpoint at %d records %v", count, entry.Stamp)
+			TimeTrack(start, "ignore.Write.checkpoint", count)
+			// log.Printf("ignore.Write::checkpoint at %d records %v", count, entry.Stamp)
 		}
 	}
 	TimeTrack(start, "ignore.Write", count)

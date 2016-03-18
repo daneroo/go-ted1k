@@ -4,9 +4,9 @@ import (
 	// "github.com/daneroo/go-mysqltest/flux"
 	"log"
 
-	// "github.com/daneroo/go-mysqltest/ignore"
-
+	"github.com/daneroo/go-mysqltest/ignore"
 	"github.com/daneroo/go-mysqltest/mysql"
+	"github.com/daneroo/go-mysqltest/progress"
 	. "github.com/daneroo/go-mysqltest/util"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
@@ -25,17 +25,22 @@ func main() {
 	myReader := &mysql.Reader{
 		TableName: "watt",
 		DB:        db,
-		Epoch:     mysql.Recent,
-		MaxRows:   mysql.AboutADay,
+		// Epoch:     mysql.Recent,
+		Epoch:   mysql.SixMonths,
+		MaxRows: mysql.AboutADay,
 	}
 	log.Printf("mysql.Reader: %v", myReader)
-
-	// my, _ := mysql.NewReader(myReader)
 	src := myReader.Read()
 
+	// Track the progress
+	monitor := &progress.Monitor{
+		Batch: progress.BatchByDay,
+	}
+	pipe := monitor.Pipe(src)
+
 	// ignore the output
-	// i, _ := ignore.New(10 * ignore.BatchByDay)
-	// i.Write(src)
+	i, _ := ignore.New(1 * ignore.BatchByDay)
+	i.Write(pipe)
 
 	// consume the channel with this sink
 	myWriter := &mysql.Writer{
@@ -43,7 +48,7 @@ func main() {
 		DB:        db,
 	}
 	log.Printf("mysql.Writer: %v", myWriter)
-	myWriter.Write(src)
+	myWriter.Write(pipe)
 
 	// consume the channel with this sink
 	// flux.WriteAll(src)
