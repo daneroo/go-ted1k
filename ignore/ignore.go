@@ -12,6 +12,10 @@ const (
 	BatchByDay = 3600 * 24
 )
 
+type Ignorer struct {
+	batch int
+}
+
 func New(batch int) (*Ignorer, error) {
 	i := &Ignorer{batch}
 	if batch <= 0 {
@@ -19,10 +23,6 @@ func New(batch int) (*Ignorer, error) {
 	}
 	log.Printf("Ignorer.batch: %d", i.batch)
 	return i, nil
-}
-
-type Ignorer struct {
-	batch int
 }
 
 func (i Ignorer) Write(src <-chan Entry) {

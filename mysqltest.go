@@ -5,7 +5,7 @@ import (
 	"log"
 
 	"github.com/daneroo/go-mysqltest/ignore"
-	"github.com/daneroo/go-mysqltest/source"
+	"github.com/daneroo/go-mysqltest/mysql"
 	. "github.com/daneroo/go-mysqltest/util"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
@@ -21,7 +21,8 @@ func main() {
 	defer db.Close()
 
 	// create a read-only channel for source Entry(s)
-	src := source.ReadAll(db)
+	my, _ := mysql.New(db, mysql.LastYear, 0)
+	src := my.Read()
 
 	// ignore the output
 	i, _ := ignore.New(10 * ignore.BatchByDay)

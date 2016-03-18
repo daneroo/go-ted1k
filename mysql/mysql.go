@@ -1,6 +1,7 @@
-package source
+package mysql
 
 import (
+	"log"
 	"time"
 
 	. "github.com/daneroo/go-mysqltest/types"
@@ -9,25 +10,44 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-var (
+const (
 	// maximum number of rows read in one iteration
-	maxRows = 3600 * 24
-	epoch   = time.Date(2015, time.July, 1, 0, 0, 0, 0, time.UTC)
-	// epoch   = time.Date(2015, time.September, 27, 0, 0, 0, 0, time.UTC)
-	// epoch = time.Date(2007, time.January, 0, 0, 0, 0, 0, time.UTC)
-	// epoch = time.Date(2037, time.January, 0, 0, 0, 0, 0, time.UTC)
+	AboutADay = 3600 * 24
 )
 
+var (
+	ThisYear  = time.Date(2016, time.January, 1, 0, 0, 0, 0, time.UTC)
+	LastYear  = time.Date(2015, time.July, 1, 0, 0, 0, 0, time.UTC)
+	AllTime   = time.Date(1970, time.January, 0, 0, 0, 0, 0, time.UTC)
+	FarFuture = time.Date(2037, time.January, 0, 0, 0, 0, 0, time.UTC)
+)
+
+type Mysqler struct {
+	db      *sqlx.DB
+	epoch   time.Time
+	maxRows int
+}
+
+func New(db *sqlx.DB, epoch time.Time, maxRows int) (*Mysqler, error) {
+	my := &Mysqler{db: db, epoch: epoch, maxRows: maxRows}
+	if maxRows <= 0 {
+		my.maxRows = AboutADay
+	}
+	log.Printf("source.options: %v", my)
+	return my, nil
+}
+
 // ReadAll creates and return a channel of Entry
-func ReadAll(db *sqlx.DB) <-chan Entry {
+func (my Mysqler) Read() <-chan Entry {
 	src := make(chan Entry)
 
-	go func() {
+	go func(my Mysqler) {
 		start := time.Now()
+
 		totalCount := 0
-		startTime := epoch
+		startTime := my.epoch
 		for {
-			lastStamp, rowCount := readRows(db, startTime, maxRows, src)
+			lastStamp, rowCount := my.readRows(startTime, src)
 
 			totalCount += rowCount
 			startTime = lastStamp
@@ -40,7 +60,7 @@ func ReadAll(db *sqlx.DB) <-chan Entry {
 		// close the channel
 		close(src)
 		TimeTrack(start, "source.ReadAll", totalCount)
-	}()
+	}(my)
 
 	return src
 }
@@ -49,11 +69,11 @@ func ReadAll(db *sqlx.DB) <-chan Entry {
 // Returned rows starts at stamp > startTime (does not include the startTime bound).
 // A maximum of maxRows rows are read.
 // Return the maximum time stamp read, as well as the number of rows.
-func readRows(db *sqlx.DB, startTime time.Time, maxRows int, src chan<- Entry) (time.Time, int) {
+func (my Mysqler) readRows(startTime time.Time, src chan<- Entry) (time.Time, int) {
 	start := time.Now()
 	sql := "SELECT stamp,watt FROM watt where stamp>? ORDER BY stamp ASC LIMIT ?"
 
-	rows, err := db.Query(sql, startTime, maxRows)
+	rows, err := my.db.Query(sql, startTime, my.maxRows)
 	defer rows.Close()
 	Checkerr(err)
 
