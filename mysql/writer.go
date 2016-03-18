@@ -1,7 +1,6 @@
 package mysql
 
 import (
-	"log"
 	"time"
 
 	. "github.com/daneroo/go-mysqltest/types"
@@ -36,7 +35,6 @@ func (w *Writer) Write(src <-chan Entry) {
 		if (count % writeBatchSize) == 0 {
 			// log.Printf("Write::checkpoint at %d records %v", count, entry.Stamp)
 			w.commitAndBeginTx(true)
-			TimeTrack(start, "mysql.Write.checkpoint", count)
 		}
 
 	}
@@ -51,20 +49,20 @@ func (w *Writer) commitAndBeginTx(beginAgain bool) {
 	if w.insertStmt != nil {
 		w.insertStmt.Close()
 		w.insertStmt = nil
-		log.Println("Closed statement")
+		// log.Println("Closed statement")
 	}
 	if w.tx != nil {
 		w.tx.Commit()
 		w.tx = nil
-		log.Println("Commited transaction")
+		// log.Println("Commited transaction")
 	}
 	if beginAgain {
 		var err error
 		w.tx, err = w.DB.Beginx()
 		Checkerr(err)
 		w.insertStmt, err = w.tx.Preparex(insertSql)
-		log.Println("Prepared insert statement (in a transaction)")
 		Checkerr(err)
+		// log.Println("Prepared insert statement (in a transaction)")
 	}
 }
 

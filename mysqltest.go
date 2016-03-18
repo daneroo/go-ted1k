@@ -4,7 +4,6 @@ import (
 	// "github.com/daneroo/go-mysqltest/flux"
 	"log"
 
-	"github.com/daneroo/go-mysqltest/ignore"
 	"github.com/daneroo/go-mysqltest/mysql"
 	"github.com/daneroo/go-mysqltest/progress"
 	. "github.com/daneroo/go-mysqltest/util"
@@ -21,34 +20,30 @@ func main() {
 	db := setup()
 	defer db.Close()
 
+	// Setup the pipeline
 	// create a read-only channel for source Entry(s)
 	myReader := &mysql.Reader{
 		TableName: "watt",
 		DB:        db,
-		// Epoch:     mysql.Recent,
-		Epoch:   mysql.SixMonths,
+		Epoch:     mysql.Recent,
+		// Epoch:   mysql.SixMonths,
 		MaxRows: mysql.AboutADay,
 	}
 	log.Printf("mysql.Reader: %v", myReader)
-	src := myReader.Read()
 
 	// Track the progress
 	monitor := &progress.Monitor{
 		Batch: progress.BatchByDay,
 	}
-	pipe := monitor.Pipe(src)
-
-	// ignore the output
-	i, _ := ignore.New(1 * ignore.BatchByDay)
-	i.Write(pipe)
-
 	// consume the channel with this sink
 	myWriter := &mysql.Writer{
 		TableName: "watt2",
 		DB:        db,
 	}
 	log.Printf("mysql.Writer: %v", myWriter)
-	myWriter.Write(pipe)
+
+	// ignore.Write(monitor.Monitor(myReader.Read()))
+	myWriter.Write(monitor.Monitor(myReader.Read()))
 
 	// consume the channel with this sink
 	// flux.WriteAll(src)

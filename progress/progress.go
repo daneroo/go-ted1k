@@ -15,11 +15,12 @@ type Monitor struct {
 	Batch int
 }
 
-func (p *Monitor) Pipe(src <-chan Entry) <-chan Entry {
+func (p *Monitor) Monitor(src <-chan Entry) <-chan Entry {
 	dst := make(chan Entry)
 
 	go func(p *Monitor) {
 		start := time.Now()
+		innerStart := start // so we ca track the inner loop rate
 		count := 0
 		for entry := range src {
 			count++
@@ -27,12 +28,15 @@ func (p *Monitor) Pipe(src <-chan Entry) <-chan Entry {
 			dst <- entry
 
 			if (count % p.Batch) == 0 {
-				TimeTrack(start, "progress.Pipe.checkpoint", count)
+				TimeTrack(innerStart, "progress.Monitor.inner", p.Batch)
+				// reset the inner timer
+				innerStart = time.Now()
+				TimeTrack(start, "progress.Monitor.global", count)
 			}
 		}
 		// close the channel
 		close(dst)
-		TimeTrack(start, "progress.Pipe", count)
+		TimeTrack(start, "progress.Monitor", count)
 	}(p)
 
 	return dst

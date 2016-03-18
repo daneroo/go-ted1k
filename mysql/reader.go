@@ -64,7 +64,6 @@ func (r *Reader) Read() <-chan Entry {
 // A maximum of maxRows rows are read.
 // Return the maximum time stamp read, as well as the number of rows.
 func (r *Reader) readRows(startTime time.Time, src chan<- Entry) (time.Time, int) {
-	start := time.Now()
 	sql := fmt.Sprintf("SELECT stamp,watt FROM %s where stamp>? ORDER BY stamp ASC LIMIT ?", r.TableName)
 
 	rows, err := r.DB.Query(sql, startTime, r.MaxRows)
@@ -87,6 +86,5 @@ func (r *Reader) readRows(startTime time.Time, src chan<- Entry) (time.Time, int
 			src <- Entry{Stamp: stamp.Time, Watt: watt}
 		}
 	}
-	TimeTrack(start, "mysql.Read.checkpoint", count)
 	return lastStamp, count
 }
