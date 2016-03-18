@@ -4,6 +4,8 @@ import (
 	// "github.com/daneroo/go-mysqltest/flux"
 	"log"
 
+	// "github.com/daneroo/go-mysqltest/ignore"
+
 	"github.com/daneroo/go-mysqltest/ignore"
 	"github.com/daneroo/go-mysqltest/mysql"
 	. "github.com/daneroo/go-mysqltest/util"
@@ -21,8 +23,16 @@ func main() {
 	defer db.Close()
 
 	// create a read-only channel for source Entry(s)
-	my, _ := mysql.New(db, mysql.LastYear, 0)
-	src := my.Read()
+	myReader := &mysql.Reader{
+		TableName: "watt",
+		DB:        db,
+		Epoch:     mysql.SixMonths,
+		MaxRows:   mysql.AboutADay,
+	}
+	log.Printf("mysql.Reader: %v", myReader)
+
+	// my, _ := mysql.NewReader(myReader)
+	src := myReader.Read()
 
 	// ignore the output
 	i, _ := ignore.New(10 * ignore.BatchByDay)

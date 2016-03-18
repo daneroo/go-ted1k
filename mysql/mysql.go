@@ -1,7 +1,7 @@
 package mysql
 
 import (
-	"log"
+	"fmt"
 	"time"
 
 	. "github.com/daneroo/go-mysqltest/types"
@@ -17,37 +17,30 @@ const (
 
 var (
 	ThisYear  = time.Date(2016, time.January, 1, 0, 0, 0, 0, time.UTC)
-	LastYear  = time.Date(2015, time.July, 1, 0, 0, 0, 0, time.UTC)
+	SixMonths = time.Date(2015, time.July, 1, 0, 0, 0, 0, time.UTC)
+	LastYear  = time.Date(2015, time.January, 1, 0, 0, 0, 0, time.UTC)
 	AllTime   = time.Date(1970, time.January, 0, 0, 0, 0, 0, time.UTC)
 	FarFuture = time.Date(2037, time.January, 0, 0, 0, 0, 0, time.UTC)
 )
 
-type Mysqler struct {
-	db      *sqlx.DB
-	epoch   time.Time
-	maxRows int
+type Reader struct {
+	DB        *sqlx.DB
+	TableName string
+	Epoch     time.Time
+	MaxRows   int
 }
 
-func New(db *sqlx.DB, epoch time.Time, maxRows int) (*Mysqler, error) {
-	my := &Mysqler{db: db, epoch: epoch, maxRows: maxRows}
-	if maxRows <= 0 {
-		my.maxRows = AboutADay
-	}
-	log.Printf("source.options: %v", my)
-	return my, nil
-}
-
-// ReadAll creates and return a channel of Entry
-func (my Mysqler) Read() <-chan Entry {
+// Read() creates and returns a channel of Entry
+func (r *Reader) Read() <-chan Entry {
 	src := make(chan Entry)
 
-	go func(my Mysqler) {
+	go func(r *Reader) {
 		start := time.Now()
 
 		totalCount := 0
-		startTime := my.epoch
+		startTime := r.Epoch
 		for {
-			lastStamp, rowCount := my.readRows(startTime, src)
+			lastStamp, rowCount := r.readRows(startTime, src)
 
 			totalCount += rowCount
 			startTime = lastStamp
@@ -60,7 +53,7 @@ func (my Mysqler) Read() <-chan Entry {
 		// close the channel
 		close(src)
 		TimeTrack(start, "source.ReadAll", totalCount)
-	}(my)
+	}(r)
 
 	return src
 }
@@ -69,11 +62,11 @@ func (my Mysqler) Read() <-chan Entry {
 // Returned rows starts at stamp > startTime (does not include the startTime bound).
 // A maximum of maxRows rows are read.
 // Return the maximum time stamp read, as well as the number of rows.
-func (my Mysqler) readRows(startTime time.Time, src chan<- Entry) (time.Time, int) {
+func (r *Reader) readRows(startTime time.Time, src chan<- Entry) (time.Time, int) {
 	start := time.Now()
-	sql := "SELECT stamp,watt FROM watt where stamp>? ORDER BY stamp ASC LIMIT ?"
+	sql := fmt.Sprintf("SELECT stamp,watt FROM %s where stamp>? ORDER BY stamp ASC LIMIT ?", r.TableName)
 
-	rows, err := my.db.Query(sql, startTime, my.maxRows)
+	rows, err := r.DB.Query(sql, startTime, r.MaxRows)
 	defer rows.Close()
 	Checkerr(err)
 
