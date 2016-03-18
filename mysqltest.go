@@ -4,6 +4,7 @@ import (
 	// "github.com/daneroo/go-mysqltest/flux"
 	"log"
 
+	"github.com/daneroo/go-mysqltest/ignore"
 	"github.com/daneroo/go-mysqltest/mysql"
 	"github.com/daneroo/go-mysqltest/progress"
 	. "github.com/daneroo/go-mysqltest/util"
@@ -42,8 +43,8 @@ func main() {
 	}
 	log.Printf("mysql.Writer: %v", myWriter)
 
-	// ignore.Write(monitor.Monitor(myReader.Read()))
-	myWriter.Write(monitor.Monitor(myReader.Read()))
+	ignore.Write(monitor.Monitor(myReader.Read()))
+	// myWriter.Write(monitor.Monitor(myReader.Read()))
 
 	// consume the channel with this sink
 	// flux.WriteAll(src)
