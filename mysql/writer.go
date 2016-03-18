@@ -24,12 +24,7 @@ type Writer struct {
 
 func (w *Writer) Write(src <-chan Entry) {
 	start := time.Now()
-	var err error
-	w.tx, err = w.DB.Beginx()
-	Checkerr(err)
-	w.insertStmt, err = w.tx.Preparex(insertSql)
-	Checkerr(err)
-	log.Println("Prepared insert statement (in a transaction)")
+	w.commitAndBeginTx(true)
 
 	count := 0
 	for entry := range src {
@@ -39,31 +34,36 @@ func (w *Writer) Write(src <-chan Entry) {
 
 		count++
 		if (count % writeBatchSize) == 0 {
-			TimeTrack(start, "mysql.Write.checkpoint", count)
 			// log.Printf("Write::checkpoint at %d records %v", count, entry.Stamp)
-			w.commitAndBeginTx(w.DB)
+			w.commitAndBeginTx(true)
+			TimeTrack(start, "mysql.Write.checkpoint", count)
 		}
 
 	}
 
-	// final Close
-	w.insertStmt.Close()
-
-	// final Tx.commit
-	err = w.tx.Commit() // not quite right..
-	Checkerr(err)
-
+	// commit but don't start another transaction
+	w.commitAndBeginTx(false)
 	TimeTrack(start, "sink.WriteAll", count)
 }
 
-func (w *Writer) commitAndBeginTx(db *sqlx.DB) {
-	w.insertStmt.Close()
-	var err error
-	w.tx.Commit()
-	w.tx, err = w.DB.Beginx()
-	Checkerr(err)
-	w.insertStmt, err = w.tx.Preparex(insertSql)
-	Checkerr(err)
+// close stmt, commit, then start a tx, and prepare stmt
+func (w *Writer) commitAndBeginTx(beginAgain bool) {
+	if w.insertStmt != nil {
+		w.insertStmt.Close()
+		w.insertStmt = nil
+	}
+	if w.tx != nil {
+		w.tx.Commit()
+		w.tx = nil
+	}
+	if beginAgain {
+		var err error
+		w.tx, err = w.DB.Beginx()
+		Checkerr(err)
+		w.insertStmt, err = w.tx.Preparex(insertSql)
+		log.Println("Prepared insert statement (in a transaction)")
+		Checkerr(err)
+	}
 }
 
 func (w *Writer) writeOneRow(stamp time.Time, watt int) {
