@@ -17,6 +17,7 @@ const (
 
 var (
 	ThisYear  = time.Date(2016, time.January, 1, 0, 0, 0, 0, time.UTC)
+	Recent    = time.Date(2015, time.September, 20, 0, 0, 0, 0, time.UTC)
 	SixMonths = time.Date(2015, time.July, 1, 0, 0, 0, 0, time.UTC)
 	LastYear  = time.Date(2015, time.January, 1, 0, 0, 0, 0, time.UTC)
 	AllTime   = time.Date(1970, time.January, 0, 0, 0, 0, 0, time.UTC)
@@ -52,7 +53,7 @@ func (r *Reader) Read() <-chan Entry {
 		}
 		// close the channel
 		close(src)
-		TimeTrack(start, "source.ReadAll", totalCount)
+		TimeTrack(start, "mysql.Read", totalCount)
 	}(r)
 
 	return src
@@ -86,6 +87,6 @@ func (r *Reader) readRows(startTime time.Time, src chan<- Entry) (time.Time, int
 			src <- Entry{Stamp: stamp.Time, Watt: watt}
 		}
 	}
-	TimeTrack(start, "source.ReadAll.checkpoint", count)
+	TimeTrack(start, "mysql.Read.checkpoint", count)
 	return lastStamp, count
 }

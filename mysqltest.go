@@ -6,7 +6,6 @@ import (
 
 	// "github.com/daneroo/go-mysqltest/ignore"
 
-	"github.com/daneroo/go-mysqltest/ignore"
 	"github.com/daneroo/go-mysqltest/mysql"
 	. "github.com/daneroo/go-mysqltest/util"
 	_ "github.com/go-sql-driver/mysql"
@@ -26,7 +25,7 @@ func main() {
 	myReader := &mysql.Reader{
 		TableName: "watt",
 		DB:        db,
-		Epoch:     mysql.SixMonths,
+		Epoch:     mysql.Recent,
 		MaxRows:   mysql.AboutADay,
 	}
 	log.Printf("mysql.Reader: %v", myReader)
@@ -35,11 +34,18 @@ func main() {
 	src := myReader.Read()
 
 	// ignore the output
-	i, _ := ignore.New(10 * ignore.BatchByDay)
-	i.Write(src)
+	// i, _ := ignore.New(10 * ignore.BatchByDay)
+	// i.Write(src)
 
 	// consume the channel with this sink
-	// sink.WriteAll(db, src)
+	myWriter := &mysql.Writer{
+		TableName: "watt2",
+		DB:        db,
+	}
+	log.Printf("mysql.Writer: %v", myWriter)
+	myWriter.Write(src)
+
+	// consume the channel with this sink
 	// flux.WriteAll(src)
 }
 
