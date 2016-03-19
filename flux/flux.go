@@ -1,5 +1,6 @@
 package flux
 
+// TODO(daneroo) should use the v2 client, it has close
 import (
 	"time"
 
@@ -15,48 +16,58 @@ import (
 	// "os"
 )
 
-const (
-	MyHost = "docker"
-	MyPort = 8086
-	MyDB   = "ted"
-	// MyMeasurement = "watt"
-	writeBatchSize = 3600 * 24
-)
+type Writer struct {
+	Host           string
+	Port           int
+	DB             string
+	Measurement    string
+	WriteBatchSize int
+	con            *client.Client
+}
+
+func DefaultWriter() *Writer {
+	w := &Writer{
+		Host:           "docker",
+		Port:           8086,
+		DB:             "ted",
+		Measurement:    "watt",
+		WriteBatchSize: 3600 * 24,
+	}
+	return w
+}
 
 // Consume the Entry (receive only) channel
 // preforming batched writes (of size writeBatchSize)
 // Also performs progress logging (and timing)
-func WriteAll(src <-chan Entry) {
+func (w *Writer) Write(src <-chan Entry) {
 	start := time.Now()
-	startBatch := time.Now() // timer for internal (chunk) loop iterations
 	count := 0
 
-	con, err := connect()
+	// should I close if not nil?
+	err := w.connect()
 	Checkerr(err)
-	// defer close?
+	// defer close? when we move to v2 client
 
-	var entries = make([]Entry, 0, writeBatchSize)
+	var entries = make([]Entry, 0, w.WriteBatchSize)
 	for entry := range src {
 		entries = append(entries, entry)
 		count++
 		if len(entries) == cap(entries) {
-			entries = flush(con, entries)
-			TimeTrack(startBatch, "flux.WriteAll.checkpoint", cap(entries))
-			startBatch = time.Now()
+			entries = w.flush(entries)
 		}
 	}
-	_ = flush(con, entries)
-	TimeTrack(start, "flux.WriteAll", count)
+	_ = w.flush(entries)
+	TimeTrack(start, "flux.Write", count)
 }
 
 // Write out the entries to con, and reallocate a new empty slice
-func flush(con *client.Client, entries []Entry) []Entry {
-	writeEntries(con, entries)
-	return make([]Entry, 0, writeBatchSize)
+func (w *Writer) flush(entries []Entry) []Entry {
+	w.writeEntries(entries)
+	return make([]Entry, 0, w.WriteBatchSize)
 }
 
 // Perform the batch write
-func writeEntries(con *client.Client, entries []Entry) {
+func (w *Writer) writeEntries(entries []Entry) {
 	var (
 		pts = make([]client.Point, len(entries))
 	)
@@ -74,16 +85,16 @@ func writeEntries(con *client.Client, entries []Entry) {
 
 	bps := client.BatchPoints{
 		Points:          pts,
-		Database:        MyDB,
+		Database:        w.DB,
 		RetentionPolicy: "default",
 	}
-	_, err := con.Write(bps)
+	_, err := w.con.Write(bps)
 	Checkerr(err)
 }
 
 // Create the client connection
-func connect() (*client.Client, error) {
-	u, err := url.Parse(fmt.Sprintf("http://%s:%d", MyHost, MyPort))
+func (w *Writer) connect() error {
+	u, err := url.Parse(fmt.Sprintf("http://%s:%d", w.Host, w.Port))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -94,16 +105,16 @@ func connect() (*client.Client, error) {
 		// Password: os.Getenv("INFLUX_PWD"),
 	}
 
-	con, err := client.NewClient(conf)
+	w.con, err = client.NewClient(conf)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	dur, ver, err := con.Ping()
+	dur, ver, err := w.con.Ping()
 	if err != nil {
 		log.Fatal(err)
 	}
 	log.Printf("Connected to %v, InfluxDB:%s, ping:%v", u, ver, dur)
 
-	return con, nil
+	return nil
 }

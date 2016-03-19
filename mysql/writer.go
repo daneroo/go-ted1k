@@ -1,6 +1,7 @@
 package mysql
 
 import (
+	"fmt"
 	"time"
 
 	. "github.com/daneroo/go-mysqltest/types"
@@ -10,8 +11,8 @@ import (
 )
 
 const (
-	insertSql      = "INSERT IGNORE INTO watt2 (stamp, watt) VALUES (?,?)"
-	writeBatchSize = 12 * 3600
+	insertSqlFormat = "INSERT IGNORE INTO %s (stamp, watt) VALUES (?,?)"
+	writeBatchSize  = 12 * 3600
 )
 
 type Writer struct {
@@ -60,6 +61,7 @@ func (w *Writer) commitAndBeginTx(beginAgain bool) {
 		var err error
 		w.tx, err = w.DB.Beginx()
 		Checkerr(err)
+		insertSql := fmt.Sprintf(insertSqlFormat, w.TableName)
 		w.insertStmt, err = w.tx.Preparex(insertSql)
 		Checkerr(err)
 		// log.Println("Prepared insert statement (in a transaction)")

@@ -2,9 +2,10 @@ package main
 
 import (
 	// "github.com/daneroo/go-mysqltest/flux"
+	"fmt"
 	"log"
 
-	"github.com/daneroo/go-mysqltest/ignore"
+	"github.com/daneroo/go-mysqltest/flux"
 	"github.com/daneroo/go-mysqltest/mysql"
 	"github.com/daneroo/go-mysqltest/progress"
 	. "github.com/daneroo/go-mysqltest/util"
@@ -18,19 +19,20 @@ const (
 
 func main() {
 
-	db := setup()
+	tableNames := []string{"watt", "watt2", "watt3"}
+	db := setup(tableNames)
 	defer db.Close()
 
 	// Setup the pipeline
 	// create a read-only channel for source Entry(s)
 	myReader := &mysql.Reader{
-		TableName: "watt",
+		TableName: "watt3",
 		DB:        db,
-		Epoch:     mysql.Recent,
-		// Epoch:   mysql.SixMonths,
+		// Epoch:     mysql.Recent,
+		Epoch:   mysql.SixMonths,
 		MaxRows: mysql.AboutADay,
 	}
-	log.Printf("mysql.Reader: %v", myReader)
+	log.Printf("mysql.Reader: %#v", myReader)
 
 	// Track the progress
 	monitor := &progress.Monitor{
@@ -41,30 +43,36 @@ func main() {
 		TableName: "watt2",
 		DB:        db,
 	}
-	log.Printf("mysql.Writer: %v", myWriter)
+	log.Printf("mysql.Writer: %#v", myWriter)
 
-	ignore.Write(monitor.Monitor(myReader.Read()))
+	fluxWriter := flux.DefaultWriter()
+	log.Printf("flux.Writer: %#v", fluxWriter)
+
+	// ignore.Write(monitor.Monitor(myReader.Read()))
 	// myWriter.Write(monitor.Monitor(myReader.Read()))
+	fluxWriter.Write(monitor.Monitor(myReader.Read()))
 
 	// consume the channel with this sink
 	// flux.WriteAll(src)
 }
 
-func setup() *sqlx.DB {
+func setup(tableNames []string) *sqlx.DB {
 	// Connect is Open and verify with a Ping
 	db, err := sqlx.Connect("mysql", myCredentials)
 	Checkerr(err)
 	log.Println("Connected to MySQL")
 
-	createCopyTable(db)
+	for _, tableName := range tableNames {
+		createCopyTable(db, tableName)
+	}
 	totalCount(db)
 
 	return db
 }
 
-func createCopyTable(db *sqlx.DB) {
-	// ddl:="create table if not exists watt2 like watt"
-	ddl := "CREATE TABLE IF NOT EXISTS watt2 ( stamp datetime NOT NULL DEFAULT '1970-01-01 00:00:00', watt int(11) NOT NULL DEFAULT '0',  PRIMARY KEY (`stamp`) )"
+func createCopyTable(db *sqlx.DB, tableName string) {
+	ddlFormat := "CREATE TABLE IF NOT EXISTS %s ( stamp datetime NOT NULL DEFAULT '1970-01-01 00:00:00', watt int(11) NOT NULL DEFAULT '0',  PRIMARY KEY (`stamp`) )"
+	ddl := fmt.Sprintf(ddlFormat, tableName)
 	_, err := db.Exec(ddl)
 	Checkerr(err)
 }
