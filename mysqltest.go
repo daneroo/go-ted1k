@@ -27,36 +27,39 @@ func main() {
 	// Setup the pipeline
 	// create a read-only channel for source Entry(s)
 	myReader := &mysql.Reader{
-		TableName: "watt3",
+		TableName: "watt",
 		DB:        db,
-		Epoch:     mysql.Recent,
+		Epoch:     mysql.LastYear,
+		// Epoch:     mysql.Recent,
 		// Epoch:   mysql.SixMonths,
 		MaxRows: mysql.AboutADay,
 	}
-	log.Printf("mysql.Reader: %#v", myReader)
+	log.Printf("mysql.Reader: %v", myReader)
 
 	// Track the progress
 	monitor := &progress.Monitor{
 		Batch: progress.BatchByDay,
 	}
+	log.Printf("progress.Monitor: %v", monitor)
 
 	// consume the channel with this sink
 	myWriter := &mysql.Writer{
 		TableName: "watt2",
 		DB:        db,
 	}
-	log.Printf("mysql.Writer: %#v", myWriter)
+	log.Printf("mysql.Writer: %v", myWriter)
 
 	fluxWriter := flux.DefaultWriter()
-	log.Printf("flux.Writer: %#v", fluxWriter)
+	log.Printf("flux.Writer: %v", fluxWriter)
 
 	jsonlWriter := jsonl.DefaultWriter()
-	log.Printf("jsonl.Writer: %#v", jsonlWriter)
+	log.Printf("jsonl.Writer: %v", jsonlWriter)
 
 	// ignore.Write(monitor.Monitor(myReader.Read()))
 	// myWriter.Write(monitor.Monitor(myReader.Read()))
 	// fluxWriter.Write(monitor.Monitor(myReader.Read()))
-	jsonlWriter.Write(monitor.Monitor(myReader.Read()))
+	// jsonlWriter.Write(monitor.Monitor(myReader.Read()))
+	jsonlWriter.Write(myReader.Read())
 
 	// consume the channel with this sink
 	// flux.WriteAll(src)

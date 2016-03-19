@@ -5,6 +5,6 @@ import (
 )
 
 type Entry struct {
-	Stamp time.Time
-	Watt  int
+	Stamp time.Time `json:"stamp"`
+	Watt  int       `json:"watt"`
 }
