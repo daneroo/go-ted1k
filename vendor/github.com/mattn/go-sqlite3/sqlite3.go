@@ -74,6 +74,20 @@ void _sqlite3_result_blob(sqlite3_context* ctx, const void* b, int l) {
   sqlite3_result_blob(ctx, b, l, SQLITE_TRANSIENT);
 }
 
+
+int _sqlite3_create_function(
+  sqlite3 *db,
+  const char *zFunctionName,
+  int nArg,
+  int eTextRep,
+  uintptr_t pApp,
+  void (*xFunc)(sqlite3_context*,int,sqlite3_value**),
+  void (*xStep)(sqlite3_context*,int,sqlite3_value**),
+  void (*xFinal)(sqlite3_context*)
+) {
+  return sqlite3_create_function(db, zFunctionName, nArg, eTextRep, (void*) pApp, xFunc, xStep, xFinal);
+}
+
 void callbackTrampoline(sqlite3_context*, int, sqlite3_value**);
 void stepTrampoline(sqlite3_context*, int, sqlite3_value**);
 void doneTrampoline(sqlite3_context*);
@@ -99,6 +113,10 @@ import (
 // into the database. When parsing a string from a timestamp or
 // datetime column, the formats are tried in order.
 var SQLiteTimestampFormats = []string{
+	// By default, store timestamps with whatever timezone they come with.
+	// When parsed, they will be returned with the same timezone.
+	"2006-01-02 15:04:05.999999999-07:00",
+	"2006-01-02T15:04:05.999999999-07:00",
 	"2006-01-02 15:04:05.999999999",
 	"2006-01-02T15:04:05.999999999",
 	"2006-01-02 15:04:05",
@@ -106,14 +124,13 @@ var SQLiteTimestampFormats = []string{
 	"2006-01-02 15:04",
 	"2006-01-02T15:04",
 	"2006-01-02",
-	"2006-01-02 15:04:05-07:00",
 }
 
 func init() {
 	sql.Register("sqlite3", &SQLiteDriver{})
 }
 
-// Return SQLite library Version information.
+// Version returns SQLite library version information.
 func Version() (libVersion string, libVersionNumber int, sourceId string) {
 	libVersion = C.GoString(C.sqlite3_libversion())
 	libVersionNumber = int(C.sqlite3_libversion_number())
@@ -350,7 +367,7 @@ func (c *SQLiteConn) RegisterFunc(name string, impl interface{}, pure bool) erro
 	if pure {
 		opts |= C.SQLITE_DETERMINISTIC
 	}
-	rv := C.sqlite3_create_function(c.db, cname, C.int(numArgs), C.int(opts), unsafe.Pointer(&fi), (*[0]byte)(unsafe.Pointer(C.callbackTrampoline)), nil, nil)
+	rv := C._sqlite3_create_function(c.db, cname, C.int(numArgs), C.int(opts), C.uintptr_t(newHandle(c, &fi)), (*[0]byte)(unsafe.Pointer(C.callbackTrampoline)), nil, nil)
 	if rv != C.SQLITE_OK {
 		return c.lastError()
 	}
@@ -475,7 +492,7 @@ func (c *SQLiteConn) RegisterAggregator(name string, impl interface{}, pure bool
 	if pure {
 		opts |= C.SQLITE_DETERMINISTIC
 	}
-	rv := C.sqlite3_create_function(c.db, cname, C.int(stepNArgs), C.int(opts), unsafe.Pointer(&ai), nil, (*[0]byte)(unsafe.Pointer(C.stepTrampoline)), (*[0]byte)(unsafe.Pointer(C.doneTrampoline)))
+	rv := C._sqlite3_create_function(c.db, cname, C.int(stepNArgs), C.int(opts), C.uintptr_t(newHandle(c, &ai)), nil, (*[0]byte)(unsafe.Pointer(C.stepTrampoline)), (*[0]byte)(unsafe.Pointer(C.doneTrampoline)))
 	if rv != C.SQLITE_OK {
 		return c.lastError()
 	}
@@ -581,12 +598,12 @@ func errorString(err Error) string {
 }
 
 // Open database and return a new connection.
-// You can specify DSN string with URI filename.
+// You can specify a DSN string using a URI as the filename.
 //   test.db
 //   file:test.db?cache=shared&mode=memory
 //   :memory:
 //   file::memory:
-// go-sqlite handle especially query parameters.
+// go-sqlite3 adds the following query parameters to those used by SQLite:
 //   _loc=XXX
 //     Specify location of time format. It's possible to specify "auto".
 //   _busy_timeout=XXX
@@ -688,6 +705,7 @@ func (d *SQLiteDriver) Open(dsn string) (driver.Conn, error) {
 
 // Close the connection.
 func (c *SQLiteConn) Close() error {
+	deleteHandles(c)
 	rv := C.sqlite3_close_v2(c.db)
 	if rv != C.SQLITE_OK {
 		return c.lastError()
@@ -697,7 +715,7 @@ func (c *SQLiteConn) Close() error {
 	return nil
 }
 
-// Prepare query string. Return a new statement.
+// Prepare the query string. Return a new statement.
 func (c *SQLiteConn) Prepare(query string) (driver.Stmt, error) {
 	pquery := C.CString(query)
 	defer C.free(unsafe.Pointer(pquery))
@@ -797,13 +815,13 @@ func (s *SQLiteStmt) bind(args []driver.Value) error {
 		case float64:
 			rv = C.sqlite3_bind_double(s.s, n, C.double(v))
 		case []byte:
-			var p *byte
-			if len(v) > 0 {
-				p = &v[0]
+			if len(v) == 0 {
+				rv = C._sqlite3_bind_blob(s.s, n, nil, 0)
+			} else {
+				rv = C._sqlite3_bind_blob(s.s, n, unsafe.Pointer(&v[0]), C.int(len(v)))
 			}
-			rv = C._sqlite3_bind_blob(s.s, n, unsafe.Pointer(p), C.int(len(v)))
 		case time.Time:
-			b := []byte(v.UTC().Format(SQLiteTimestampFormats[0]))
+			b := []byte(v.Format(SQLiteTimestampFormats[0]))
 			rv = C._sqlite3_bind_text(s.s, n, (*C.char)(unsafe.Pointer(&b[0])), C.int(len(b)))
 		}
 		if rv != C.SQLITE_OK {
@@ -875,6 +893,17 @@ func (rc *SQLiteRows) Columns() []string {
 	return rc.cols
 }
 
+// Return column types.
+func (rc *SQLiteRows) DeclTypes() []string {
+	if rc.decltype == nil {
+		rc.decltype = make([]string, rc.nc)
+		for i := 0; i < rc.nc; i++ {
+			rc.decltype[i] = strings.ToLower(C.GoString(C.sqlite3_column_decltype(rc.s.s, C.int(i))))
+		}
+	}
+	return rc.decltype
+}
+
 // Move cursor to next.
 func (rc *SQLiteRows) Next(dest []driver.Value) error {
 	rv := C.sqlite3_step(rc.s.s)
@@ -889,12 +918,7 @@ func (rc *SQLiteRows) Next(dest []driver.Value) error {
 		return nil
 	}
 
-	if rc.decltype == nil {
-		rc.decltype = make([]string, rc.nc)
-		for i := 0; i < rc.nc; i++ {
-			rc.decltype[i] = strings.ToLower(C.GoString(C.sqlite3_column_decltype(rc.s.s, C.int(i))))
-		}
-	}
+	rc.DeclTypes()
 
 	for i := range dest {
 		switch C.sqlite3_column_type(rc.s.s, C.int(i)) {
@@ -902,18 +926,15 @@ func (rc *SQLiteRows) Next(dest []driver.Value) error {
 			val := int64(C.sqlite3_column_int64(rc.s.s, C.int(i)))
 			switch rc.decltype[i] {
 			case "timestamp", "datetime", "date":
-				unixTimestamp := strconv.FormatInt(val, 10)
 				var t time.Time
-				if len(unixTimestamp) == 13 {
-					duration, err := time.ParseDuration(unixTimestamp + "ms")
-					if err != nil {
-						return fmt.Errorf("error parsing %s value %d, %s", rc.decltype[i], val, err)
-					}
-					epoch := time.Date(1970, 1, 1, 0, 0, 0, 0, time.UTC)
-					t = epoch.Add(duration)
+				// Assume a millisecond unix timestamp if it's 13 digits -- too
+				// large to be a reasonable timestamp in seconds.
+				if val > 1e12 || val < -1e12 {
+					val *= int64(time.Millisecond) // convert ms to nsec
 				} else {
-					t = time.Unix(val, 0)
+					val *= int64(time.Second) // convert sec to nsec
 				}
+				t = time.Unix(0, val).UTC()
 				if rc.s.c.loc != nil {
 					t = t.In(rc.s.c.loc)
 				}
