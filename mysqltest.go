@@ -29,9 +29,10 @@ func main() {
 	myReader := &mysql.Reader{
 		TableName: "watt",
 		DB:        db,
-		Epoch:     mysql.LastYear,
 		// Epoch:     mysql.Recent,
 		// Epoch:   mysql.SixMonths,
+		// Epoch:     mysql.LastYear,
+		Epoch:   mysql.AllTime,
 		MaxRows: mysql.AboutADay,
 	}
 	log.Printf("mysql.Reader: %v", myReader)
@@ -58,8 +59,8 @@ func main() {
 	// ignore.Write(monitor.Monitor(myReader.Read()))
 	// myWriter.Write(monitor.Monitor(myReader.Read()))
 	// fluxWriter.Write(monitor.Monitor(myReader.Read()))
-	// jsonlWriter.Write(monitor.Monitor(myReader.Read()))
-	jsonlWriter.Write(myReader.Read())
+	jsonlWriter.Write(monitor.Monitor(myReader.Read()))
+	// jsonlWriter.Write(myReader.Read())
 
 	// consume the channel with this sink
 	// flux.WriteAll(src)
