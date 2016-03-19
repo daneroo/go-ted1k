@@ -1,69 +1,61 @@
-package sink
+package jsonl
 
 import (
-	"log"
+	"bufio"
+	"encoding/json"
+	"os"
 	"time"
 
 	. "github.com/daneroo/go-mysqltest/types"
 	. "github.com/daneroo/go-mysqltest/util"
-	"github.com/daneroo/go-mysqltest/vendor/github.com/jmoiron/sqlx"
 )
 
 const (
-	// insertSql      = "INSERT IGNORE INTO watt2 (stamp, watt) VALUES (?,?)"
-	writeBatchSize = 12 * 3600
+	// BySecond = "2006-01-02T15:04:05"
+	// These are time.Format layouts, used to detect file rollover...
+	ByMinute = "2006-01-02T15:04:05"
+	ByHour   = "2006-01-02T15:04:05"
+	ByDay    = "2006-01-02T15:04:05"
 )
 
-var (
-	tx         *sqlx.Tx
-	insertStmt *sqlx.Stmt
-)
+type Writer struct {
+	FlushBoundary string
+}
 
-func WriteAll(db *sqlx.DB, src <-chan Entry) {
+func DefaultWriter() *Writer {
+	w := &Writer{
+		FlushBoundary: ByMinute,
+	}
+	return w
+}
+
+// Consume the Entry (receive only) channel
+// preforming batched writes (of size writeBatchSize)
+// Also performs progress logging (and timing)
+func (w *Writer) Write(src <-chan Entry) {
 	start := time.Now()
-	var err error
-	tx, err = db.Beginx()
-	Checkerr(err)
-	insertStmt, err = tx.Preparex(insertSql)
-	Checkerr(err)
-	log.Println("Prepared insert statement (in a transaction)")
-
 	count := 0
+
+	f, err := os.Create("./data/data.jsonl")
+	Checkerr(err)
+	defer f.Close()
+
+	enc := json.NewEncoder(f)
+	bufw := bufio.NewWriter(f) // default size 4k
 	for entry := range src {
-
-		writeOneRow(entry.Stamp, entry.Watt)
-		// log.Printf("Write %v, %d  (%d)\n", entry.stamp, entry.watt, count)
-
 		count++
-		if (count % writeBatchSize) == 0 {
-			log.Printf("Write::checkpoint at %d records %v", count, entry.Stamp)
-			commitAndBeginTx(db)
-		}
+
+		// bytes, err := json.Marshal(entry)
+		// Checkerr(err)
+		// written, err := bufw.Write(bytes)
+		// bufw.WriteByte('\n')
+		// log.Printf("line: %s (%d, %d)", bytes, written, count)
+		// Checkerr(err)
+
+		err := enc.Encode(&entry)
+		Checkerr(err)
 
 	}
-
-	// final Close
-	insertStmt.Close()
-
-	// final Tx.commit
-	err = tx.Commit() // not quite right..
-	Checkerr(err)
-
-	TimeTrack(start, "sink.WriteAll", count)
-}
-
-func commitAndBeginTx(db *sqlx.DB) {
-	insertStmt.Close()
-	var err error
-	tx.Commit()
-	tx, err = db.Beginx()
-	Checkerr(err)
-	insertStmt, err = tx.Preparex(insertSql)
-	Checkerr(err)
-}
-
-func writeOneRow(stamp time.Time, watt int) {
-	// log.Printf("Write %v, %d\n", stamp, watt)
-	_, err := insertStmt.Exec(stamp, watt)
-	Checkerr(err)
+	bufw.Flush()
+	TimeTrack(start, "jsonl.Write", count)
 }

@@ -6,6 +6,7 @@ import (
 	"log"
 
 	"github.com/daneroo/go-mysqltest/flux"
+	"github.com/daneroo/go-mysqltest/jsonl"
 	"github.com/daneroo/go-mysqltest/mysql"
 	"github.com/daneroo/go-mysqltest/progress"
 	. "github.com/daneroo/go-mysqltest/util"
@@ -28,8 +29,8 @@ func main() {
 	myReader := &mysql.Reader{
 		TableName: "watt3",
 		DB:        db,
-		// Epoch:     mysql.Recent,
-		Epoch:   mysql.SixMonths,
+		Epoch:     mysql.Recent,
+		// Epoch:   mysql.SixMonths,
 		MaxRows: mysql.AboutADay,
 	}
 	log.Printf("mysql.Reader: %#v", myReader)
@@ -38,6 +39,7 @@ func main() {
 	monitor := &progress.Monitor{
 		Batch: progress.BatchByDay,
 	}
+
 	// consume the channel with this sink
 	myWriter := &mysql.Writer{
 		TableName: "watt2",
@@ -48,9 +50,13 @@ func main() {
 	fluxWriter := flux.DefaultWriter()
 	log.Printf("flux.Writer: %#v", fluxWriter)
 
+	jsonlWriter := jsonl.DefaultWriter()
+	log.Printf("jsonl.Writer: %#v", jsonlWriter)
+
 	// ignore.Write(monitor.Monitor(myReader.Read()))
 	// myWriter.Write(monitor.Monitor(myReader.Read()))
-	fluxWriter.Write(monitor.Monitor(myReader.Read()))
+	// fluxWriter.Write(monitor.Monitor(myReader.Read()))
+	jsonlWriter.Write(monitor.Monitor(myReader.Read()))
 
 	// consume the channel with this sink
 	// flux.WriteAll(src)
