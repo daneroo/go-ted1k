@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/daneroo/go-mysqltest/flux"
+	"github.com/daneroo/go-mysqltest/ignore"
 	"github.com/daneroo/go-mysqltest/jsonl"
 	"github.com/daneroo/go-mysqltest/mysql"
 	"github.com/daneroo/go-mysqltest/progress"
@@ -33,7 +34,7 @@ func main() {
 		// Epoch:     mysql.ThisYear,
 		// Epoch: mysql.Recent,
 		// Epoch: mysql.SixMonths,
-		Epoch: time.Date(2014, time.January, 1, 0, 0, 0, 0, time.UTC),
+		Epoch: time.Date(2015, time.November, 1, 0, 0, 0, 0, time.UTC),
 		// Epoch: mysql.LastYear,
 		// Epoch:   mysql.AllTime,
 		MaxRows: mysql.AboutADay,
@@ -56,17 +57,29 @@ func main() {
 	fluxWriter := flux.DefaultWriter()
 	log.Printf("flux.Writer: %v", fluxWriter)
 
+	jsonlReader := jsonl.DefaultReader()
+	// jsonlReader.Grain = timewalker.Month
+	log.Printf("jsonl.Reader: %v", jsonlReader)
+
 	jsonlWriter := jsonl.DefaultWriter()
+	// jsonlWriter.Grain = timewalker.Month
 	log.Printf("jsonl.Writer: %v", jsonlWriter)
 
+	// 320k entries/s
 	// ignore.Write(monitor.Monitor(myReader.Read()))
-	// myWriter.Write(monitor.Monitor(myReader.Read()))
-	fluxWriter.Write(monitor.Monitor(myReader.Read()))
-	// jsonlWriter.Write(monitor.Monitor(myReader.Read()))
-	// jsonlWriter.Write(myReader.Read())
 
-	// consume the channel with this sink
-	// flux.WriteAll(src)
+	// 3.5k entries/s
+	// myWriter.Write(monitor.Monitor(myReader.Read()))
+
+	// x.xk entries/s
+	// fluxWriter.Write(monitor.Monitor(myReader.Read()))
+
+	// 120k entries/s
+	// jsonlWriter.Write(monitor.Monitor(myReader.Read()))
+
+	// 230k entries/s
+	ignore.Write(monitor.Monitor(jsonlReader.Read()))
+
 }
 
 func setup(tableNames []string) *sqlx.DB {
