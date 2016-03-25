@@ -2,8 +2,7 @@
 
 ## Todo
 
-- Batch writes to ted/watt2 - Reader or LOAD INFILE
-- Refactor Progress (TimeTrack...) Interceptor channel ?
+[See Evernote](https://www.evernote.com/shard/s60/nl/1773032759/ae1b9921-7e85-4b75-a21b-86be7d524295/)
 
 ## Vendoring
 
@@ -12,12 +11,14 @@
 	govend -v  # download all the dependencies in the vendor.yml file
 	govend -v -u # scan your project, update all dependencies, and update the vendor.yml revision versions
 
-See this [Go/Wiki for reference](https://github.com/golang/go/wiki/PackageManagementTools)
+To install [`govend`](https://github.com/gophersaurus/govend) itself:
 
-We want to use `GO15VENDOREXPERIMENT=1` and place our external dependencies in a `vendor folder`.
-We are using [`govend`](https://github.com/gophersaurus/govend) as listed.
+	go get -u github.com/govend/govend
 
-To install `govend`, we did a standard `go get -u github.com/gophersaurus/govend`, and makde sure our `GOPATH` was set and `$GOPATH/bin` is on our `$PATH`. also `GO15VENDOREXPERIMENT=1` needs to be set.
+and made sure our `GOPATH` was set and `$GOPATH/bin` is on our `$PATH`.
+
+See this general vendoring entry: [Go/Wiki for reference](https://github.com/golang/go/wiki/PackageManagementTools).
+Prior to `go1.6`, we also had to set `GO15VENDOREXPERIMENT=1`.
 
 ## InfluxDB
 
