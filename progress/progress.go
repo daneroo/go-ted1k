@@ -1,6 +1,7 @@
 package progress
 
 import (
+	"fmt"
 	"time"
 
 	. "github.com/daneroo/go-mysqltest/types"
@@ -31,7 +32,10 @@ func (p *Monitor) Monitor(src <-chan Entry) <-chan Entry {
 				TimeTrack(innerStart, "progress.Monitor.inner", p.Batch)
 				// reset the inner timer
 				innerStart = time.Now()
-				TimeTrack(start, "progress.Monitor.global", count)
+
+				day := entry.Stamp.Format("2006-01-02")
+				TimeTrack(start, fmt.Sprintf("progress.Monitor.global (%s)", day), count)
+				// TimeTrack(start, "progress.Monitor.global", count)
 			}
 		}
 		// close the channel

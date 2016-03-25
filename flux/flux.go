@@ -90,6 +90,7 @@ func (w *Writer) writeEntries(entries []Entry) {
 		// fmt.Printf("point: %v\n", pt)
 	}
 
+	// TODO(daneroo): retry, if error is timeout?
 	err = w.con.Write(bps)
 	Checkerr(err)
 }

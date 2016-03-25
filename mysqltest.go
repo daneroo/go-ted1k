@@ -4,6 +4,7 @@ import (
 	// "github.com/daneroo/go-mysqltest/flux"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/daneroo/go-mysqltest/flux"
 	"github.com/daneroo/go-mysqltest/jsonl"
@@ -31,8 +32,8 @@ func main() {
 		DB:        db,
 		// Epoch:     mysql.ThisYear,
 		// Epoch: mysql.Recent,
-		Epoch: mysql.SixMonths,
-		// Epoch: time.Date(2014, time.January, 1, 0, 0, 0, 0, time.UTC),
+		// Epoch: mysql.SixMonths,
+		Epoch: time.Date(2014, time.January, 1, 0, 0, 0, 0, time.UTC),
 		// Epoch: mysql.LastYear,
 		// Epoch:   mysql.AllTime,
 		MaxRows: mysql.AboutADay,
