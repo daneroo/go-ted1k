@@ -2,19 +2,18 @@ package flux
 
 // TODO(daneroo) should use the v2 client, it has close
 import (
+	"log"
 	"time"
 
 	. "github.com/daneroo/go-mysqltest/types"
 	. "github.com/daneroo/go-mysqltest/util"
-	"github.com/influxdb/influxdb/client"
+	// client "github.com/influxdata/influxdb/client/v2"
+	client "github.com/influxdata/influxdb/client/v2"
 )
 
-import (
-	"fmt"
-	"log"
-	"net/url"
-	// "os"
-)
+import "fmt"
+
+// "os"
 
 type Writer struct {
 	Host           string
@@ -22,7 +21,7 @@ type Writer struct {
 	DB             string
 	Measurement    string
 	WriteBatchSize int
-	con            *client.Client
+	con            client.Client
 }
 
 func DefaultWriter() *Writer {
@@ -39,6 +38,7 @@ func DefaultWriter() *Writer {
 // Consume the Entry (receive only) channel
 // preforming batched writes (of size writeBatchSize)
 // Also performs progress logging (and timing)
+// and closes the connection
 func (w *Writer) Write(src <-chan Entry) {
 	start := time.Now()
 	count := 0
@@ -57,6 +57,7 @@ func (w *Writer) Write(src <-chan Entry) {
 		}
 	}
 	_ = w.flush(entries)
+	w.close()
 	TimeTrack(start, "flux.Write", count)
 }
 
@@ -68,53 +69,50 @@ func (w *Writer) flush(entries []Entry) []Entry {
 
 // Perform the batch write
 func (w *Writer) writeEntries(entries []Entry) {
-	var (
-		pts = make([]client.Point, len(entries))
-	)
-
-	for i, entry := range entries {
-		pts[i] = client.Point{
-			Measurement: "watt",
-			Fields: map[string]interface{}{
-				"value": entry.Watt,
-			},
-			Time: entry.Stamp,
-		}
-		// fmt.Printf("point[%d]: %v\n", i, pts[i])
-	}
-
-	bps := client.BatchPoints{
-		Points:          pts,
+	bps, err := client.NewBatchPoints(client.BatchPointsConfig{
 		Database:        w.DB,
 		RetentionPolicy: "default",
+		Precision:       "s",
+		// WriteConsistency: string,
+	})
+	Checkerr(err)
+
+	for _, entry := range entries {
+		name := "watt" // Measurement
+		tags := map[string]string{ /*"ted1k",...*/ }
+		fields := map[string]interface{}{
+			"value": entry.Watt,
+		}
+		pt, err := client.NewPoint(name, tags, fields, entry.Stamp)
+		Checkerr(err)
+		bps.AddPoint(pt)
+
+		// fmt.Printf("point: %v\n", pt)
 	}
-	_, err := w.con.Write(bps)
+
+	err = w.con.Write(bps)
 	Checkerr(err)
 }
 
 // Create the client connection
+// TODO(daneroo): We need to close this thing!
 func (w *Writer) connect() error {
-	u, err := url.Parse(fmt.Sprintf("http://%s:%d", w.Host, w.Port))
-	if err != nil {
-		log.Fatal(err)
-	}
 
-	conf := client.Config{
-		URL: *u,
+	url := fmt.Sprintf("http://%s:%d", w.Host, w.Port)
+	var err error
+	w.con, err = client.NewHTTPClient(client.HTTPConfig{
+		Addr: url,
 		// Username: os.Getenv("INFLUX_USER"),
 		// Password: os.Getenv("INFLUX_PWD"),
-	}
+	})
+	Checkerr(err)
 
-	w.con, err = client.NewClient(conf)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	dur, ver, err := w.con.Ping()
-	if err != nil {
-		log.Fatal(err)
-	}
-	log.Printf("Connected to %v, InfluxDB:%s, ping:%v", u, ver, dur)
+	dur, ver, err := w.con.Ping(time.Minute)
+	Checkerr(err)
+	log.Printf("Connected to %s, InfluxDB:%s, ping:%v", url, ver, dur)
 
 	return nil
+}
+func (w *Writer) close() error {
+	return w.con.Close()
 }

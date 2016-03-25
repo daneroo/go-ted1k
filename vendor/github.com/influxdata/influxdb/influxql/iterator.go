@@ -27,11 +27,21 @@ const (
 // Iterator represents a generic interface for all Iterators.
 // Most iterator operations are done on the typed sub-interfaces.
 type Iterator interface {
+	Stats() IteratorStats
 	Close() error
 }
 
 // Iterators represents a list of iterators.
 type Iterators []Iterator
+
+// Stats returns the aggregation of all iterator stats.
+func (a Iterators) Stats() IteratorStats {
+	var stats IteratorStats
+	for _, itr := range a {
+		stats.Add(itr.Stats())
+	}
+	return stats
+}
 
 // Close closes all iterators.
 func (a Iterators) Close() error {
@@ -222,6 +232,23 @@ func NewIntervalIterator(input Iterator, opt IteratorOptions) Iterator {
 	}
 }
 
+// NewInterruptIterator returns an iterator that will stop producing output when a channel
+// has been closed on the passed in channel.
+func NewInterruptIterator(input Iterator, closing <-chan struct{}) Iterator {
+	switch input := input.(type) {
+	case FloatIterator:
+		return newFloatInterruptIterator(input, closing)
+	case IntegerIterator:
+		return newIntegerInterruptIterator(input, closing)
+	case StringIterator:
+		return newStringInterruptIterator(input, closing)
+	case BooleanIterator:
+		return newBooleanInterruptIterator(input, closing)
+	default:
+		panic(fmt.Sprintf("unsupported fill iterator type: %T", input))
+	}
+}
+
 // AuxIterator represents an iterator that can split off separate auxilary iterators.
 type AuxIterator interface {
 	Iterator
@@ -397,7 +424,8 @@ func drainIterator(itr Iterator) {
 // NewReaderIterator returns an iterator that streams from a reader.
 func NewReaderIterator(r io.Reader) (Iterator, error) {
 	var p Point
-	if err := NewPointDecoder(r).DecodePoint(&p); err == io.EOF {
+	dec := NewPointDecoder(r)
+	if err := dec.DecodePoint(&p); err == io.EOF {
 		return &nilFloatIterator{}, nil
 	} else if err != nil {
 		return nil, err
@@ -405,13 +433,13 @@ func NewReaderIterator(r io.Reader) (Iterator, error) {
 
 	switch p := p.(type) {
 	case *FloatPoint:
-		return newFloatReaderIterator(r, p), nil
+		return newFloatReaderIterator(r, p, dec.Stats()), nil
 	case *IntegerPoint:
-		return newIntegerReaderIterator(r, p), nil
+		return newIntegerReaderIterator(r, p, dec.Stats()), nil
 	case *StringPoint:
-		return newStringReaderIterator(r, p), nil
+		return newStringReaderIterator(r, p, dec.Stats()), nil
 	case *BooleanPoint:
-		return newBooleanReaderIterator(r, p), nil
+		return newBooleanReaderIterator(r, p, dec.Stats()), nil
 	default:
 		panic(fmt.Sprintf("unsupported point for reader iterator: %T", p))
 	}
@@ -466,7 +494,11 @@ func (a IteratorCreators) CreateIterator(opt IteratorOptions) (Iterator, error) 
 
 	// Merge into a single iterator.
 	if opt.MergeSorted() {
-		return NewSortedMergeIterator(itrs, opt), nil
+		itr := NewSortedMergeIterator(itrs, opt)
+		if opt.InterruptCh != nil {
+			itr = NewInterruptIterator(itr, opt.InterruptCh)
+		}
+		return itr, nil
 	}
 
 	itr := NewMergeIterator(itrs, opt)
@@ -477,6 +509,10 @@ func (a IteratorCreators) CreateIterator(opt IteratorOptions) (Iterator, error) 
 				Args: expr.Args,
 			}
 		}
+	}
+
+	if opt.InterruptCh != nil {
+		itr = NewInterruptIterator(itr, opt.InterruptCh)
 	}
 	return NewCallIterator(itr, opt)
 }
@@ -604,6 +640,10 @@ type IteratorOptions struct {
 
 	// Removes duplicate rows from raw queries.
 	Dedupe bool
+
+	// If this channel is set and is closed, the iterator should try to exit
+	// and close as soon as possible.
+	InterruptCh <-chan struct{}
 }
 
 // newIteratorOptionsStmt creates the iterator options from stmt.
@@ -653,8 +693,17 @@ func newIteratorOptionsStmt(stmt *SelectStatement, sopt *SelectOptions) (opt Ite
 	opt.Dedupe = stmt.Dedupe
 
 	opt.Fill, opt.FillValue = stmt.Fill, stmt.FillValue
+	if opt.Fill == NullFill && stmt.Target != nil {
+		// Set the fill option to none if a target has been given.
+		// Null values will get ignored when being written to the target
+		// so fill(null) wouldn't write any null values to begin with.
+		opt.Fill = NoFill
+	}
 	opt.Limit, opt.Offset = stmt.Limit, stmt.Offset
 	opt.SLimit, opt.SOffset = stmt.SLimit, stmt.SOffset
+	if sopt != nil {
+		opt.InterruptCh = sopt.InterruptCh
+	}
 
 	return opt, nil
 }
@@ -980,8 +1029,9 @@ func decodeInterval(pb *internal.Interval) Interval {
 
 type nilFloatIterator struct{}
 
-func (*nilFloatIterator) Close() error      { return nil }
-func (*nilFloatIterator) Next() *FloatPoint { return nil }
+func (*nilFloatIterator) Stats() IteratorStats { return IteratorStats{} }
+func (*nilFloatIterator) Close() error         { return nil }
+func (*nilFloatIterator) Next() *FloatPoint    { return nil }
 
 // integerFloatTransformIterator executes a function to modify an existing point for every
 // output of the input iterator.
@@ -989,6 +1039,9 @@ type integerFloatTransformIterator struct {
 	input IntegerIterator
 	fn    integerFloatTransformFunc
 }
+
+// Stats returns stats from the input iterator.
+func (itr *integerFloatTransformIterator) Stats() IteratorStats { return itr.input.Stats() }
 
 // Close closes the iterator and all child iterators.
 func (itr *integerFloatTransformIterator) Close() error { return itr.input.Close() }
@@ -1011,7 +1064,8 @@ type integerFloatCastIterator struct {
 	input IntegerIterator
 }
 
-func (itr *integerFloatCastIterator) Close() error { return itr.input.Close() }
+func (itr *integerFloatCastIterator) Stats() IteratorStats { return itr.input.Stats() }
+func (itr *integerFloatCastIterator) Close() error         { return itr.input.Close() }
 func (itr *integerFloatCastIterator) Next() *FloatPoint {
 	p := itr.input.Next()
 	if p == nil {
@@ -1025,5 +1079,33 @@ func (itr *integerFloatCastIterator) Next() *FloatPoint {
 		Nil:   p.Nil,
 		Value: float64(p.Value),
 		Aux:   p.Aux,
+	}
+}
+
+// IteratorStats represents statistics about an iterator.
+// Some statistics are available immediately upon iterator creation while
+// some are derived as the iterator processes data.
+type IteratorStats struct {
+	SeriesN int // series represented
+	PointN  int // points returned
+}
+
+// Add aggregates fields from s and other together. Overwrites s.
+func (s *IteratorStats) Add(other IteratorStats) {
+	s.SeriesN += other.SeriesN
+	s.PointN += other.PointN
+}
+
+func encodeIteratorStats(stats *IteratorStats) *internal.IteratorStats {
+	return &internal.IteratorStats{
+		SeriesN: proto.Int64(int64(stats.SeriesN)),
+		PointN:  proto.Int64(int64(stats.PointN)),
+	}
+}
+
+func decodeIteratorStats(pb *internal.IteratorStats) IteratorStats {
+	return IteratorStats{
+		SeriesN: int(pb.GetSeriesN()),
+		PointN:  int(pb.GetPointN()),
 	}
 }

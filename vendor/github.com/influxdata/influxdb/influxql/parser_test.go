@@ -51,6 +51,13 @@ func TestParser_ParseQuery_ParseError(t *testing.T) {
 	}
 }
 
+func TestParser_ParseQuery_NoSemicolon(t *testing.T) {
+	_, err := influxql.NewParser(strings.NewReader(`CREATE DATABASE foo CREATE DATABASE bar`)).ParseQuery()
+	if err == nil || err.Error() != `found CREATE, expected ; at line 1, char 21` {
+		t.Fatalf("unexpected error: %s", err)
+	}
+}
+
 // Ensure the parser can parse strings into Statement ASTs.
 func TestParser_ParseStatement(t *testing.T) {
 	// For use in various tests.
@@ -749,6 +756,20 @@ func TestParser_ParseStatement(t *testing.T) {
 			},
 		},
 
+		// SHOW QUERIES
+		{
+			s:    `SHOW QUERIES`,
+			stmt: &influxql.ShowQueriesStatement{},
+		},
+
+		// KILL QUERY 4
+		{
+			s: `KILL QUERY 4`,
+			stmt: &influxql.KillQueryStatement{
+				QueryID: 4,
+			},
+		},
+
 		// SHOW RETENTION POLICIES
 		{
 			s: `SHOW RETENTION POLICIES ON mydb`,
@@ -1307,6 +1328,30 @@ func TestParser_ParseStatement(t *testing.T) {
 				RetentionPolicyName:        "test_name",
 			},
 		},
+		{
+			s: `CREATE DATABASE testdb WITH DURATION 24h REPLICATION 2 SHARD DURATION 10m NAME test_name `,
+			stmt: &influxql.CreateDatabaseStatement{
+				Name:                              "testdb",
+				IfNotExists:                       false,
+				RetentionPolicyCreate:             true,
+				RetentionPolicyDuration:           24 * time.Hour,
+				RetentionPolicyReplication:        2,
+				RetentionPolicyName:               "test_name",
+				RetentionPolicyShardGroupDuration: 10 * time.Minute,
+			},
+		},
+		{
+			s: `CREATE DATABASE IF NOT EXISTS testdb WITH DURATION 24h REPLICATION 2 SHARD DURATION 10m NAME test_name`,
+			stmt: &influxql.CreateDatabaseStatement{
+				Name:                              "testdb",
+				IfNotExists:                       true,
+				RetentionPolicyCreate:             true,
+				RetentionPolicyDuration:           24 * time.Hour,
+				RetentionPolicyReplication:        2,
+				RetentionPolicyName:               "test_name",
+				RetentionPolicyShardGroupDuration: 10 * time.Minute,
+			},
+		},
 
 		// CREATE USER statement
 		{
@@ -1524,46 +1569,62 @@ func TestParser_ParseStatement(t *testing.T) {
 				Default:     true,
 			},
 		},
+		// CREATE RETENTION POLICY
+		{
+			s: `CREATE RETENTION POLICY policy1 ON testdb DURATION 1h REPLICATION 2 SHARD DURATION 30m`,
+			stmt: &influxql.CreateRetentionPolicyStatement{
+				Name:               "policy1",
+				Database:           "testdb",
+				Duration:           time.Hour,
+				Replication:        2,
+				ShardGroupDuration: 30 * time.Minute,
+			},
+		},
 
 		// ALTER RETENTION POLICY
 		{
 			s:    `ALTER RETENTION POLICY policy1 ON testdb DURATION 1m REPLICATION 4 DEFAULT`,
-			stmt: newAlterRetentionPolicyStatement("policy1", "testdb", time.Minute, 4, true),
+			stmt: newAlterRetentionPolicyStatement("policy1", "testdb", time.Minute, -1, 4, true),
 		},
 
 		// ALTER RETENTION POLICY with options in reverse order
 		{
 			s:    `ALTER RETENTION POLICY policy1 ON testdb DEFAULT REPLICATION 4 DURATION 1m`,
-			stmt: newAlterRetentionPolicyStatement("policy1", "testdb", time.Minute, 4, true),
+			stmt: newAlterRetentionPolicyStatement("policy1", "testdb", time.Minute, -1, 4, true),
 		},
 
 		// ALTER RETENTION POLICY with infinite retention
 		{
 			s:    `ALTER RETENTION POLICY policy1 ON testdb DEFAULT REPLICATION 4 DURATION INF`,
-			stmt: newAlterRetentionPolicyStatement("policy1", "testdb", 0, 4, true),
+			stmt: newAlterRetentionPolicyStatement("policy1", "testdb", 0, -1, 4, true),
 		},
 
 		// ALTER RETENTION POLICY without optional DURATION
 		{
 			s:    `ALTER RETENTION POLICY policy1 ON testdb DEFAULT REPLICATION 4`,
-			stmt: newAlterRetentionPolicyStatement("policy1", "testdb", -1, 4, true),
+			stmt: newAlterRetentionPolicyStatement("policy1", "testdb", -1, -1, 4, true),
 		},
 
 		// ALTER RETENTION POLICY without optional REPLICATION
 		{
 			s:    `ALTER RETENTION POLICY policy1 ON testdb DEFAULT`,
-			stmt: newAlterRetentionPolicyStatement("policy1", "testdb", -1, -1, true),
+			stmt: newAlterRetentionPolicyStatement("policy1", "testdb", -1, -1, -1, true),
 		},
 
 		// ALTER RETENTION POLICY without optional DEFAULT
 		{
 			s:    `ALTER RETENTION POLICY policy1 ON testdb REPLICATION 4`,
-			stmt: newAlterRetentionPolicyStatement("policy1", "testdb", -1, 4, false),
+			stmt: newAlterRetentionPolicyStatement("policy1", "testdb", -1, -1, 4, false),
 		},
 		// ALTER default retention policy unquoted
 		{
 			s:    `ALTER RETENTION POLICY default ON testdb REPLICATION 4`,
-			stmt: newAlterRetentionPolicyStatement("default", "testdb", -1, 4, false),
+			stmt: newAlterRetentionPolicyStatement("default", "testdb", -1, -1, 4, false),
+		},
+		// ALTER RETENTION POLICY with SHARD duration
+		{
+			s:    `ALTER RETENTION POLICY policy1 ON testdb REPLICATION 4 SHARD DURATION 10m`,
+			stmt: newAlterRetentionPolicyStatement("policy1", "testdb", -1, 10*time.Minute, 4, false),
 		},
 
 		// SHOW STATS
@@ -1633,10 +1694,10 @@ func TestParser_ParseStatement(t *testing.T) {
 		},
 
 		// Errors
-		{s: ``, err: `found EOF, expected SELECT, DELETE, SHOW, CREATE, DROP, GRANT, REVOKE, ALTER, SET at line 1, char 1`},
+		{s: ``, err: `found EOF, expected SELECT, DELETE, SHOW, CREATE, DROP, GRANT, REVOKE, ALTER, SET, KILL at line 1, char 1`},
 		{s: `SELECT`, err: `found EOF, expected identifier, string, number, bool at line 1, char 8`},
 		{s: `SELECT time FROM myseries`, err: `at least 1 non-time field must be queried`},
-		{s: `blah blah`, err: `found blah, expected SELECT, DELETE, SHOW, CREATE, DROP, GRANT, REVOKE, ALTER, SET at line 1, char 1`},
+		{s: `blah blah`, err: `found blah, expected SELECT, DELETE, SHOW, CREATE, DROP, GRANT, REVOKE, ALTER, SET, KILL at line 1, char 1`},
 		{s: `SELECT field1 X`, err: `found X, expected FROM at line 1, char 15`},
 		{s: `SELECT field1 FROM "series" WHERE X +;`, err: `found ;, expected identifier, string, number, bool at line 1, char 38`},
 		{s: `SELECT field1 FROM myseries GROUP`, err: `found EOF, expected BY at line 1, char 35`},
@@ -1742,7 +1803,7 @@ func TestParser_ParseStatement(t *testing.T) {
 		{s: `SHOW RETENTION POLICIES mydb`, err: `found mydb, expected ON at line 1, char 25`},
 		{s: `SHOW RETENTION POLICIES ON`, err: `found EOF, expected identifier at line 1, char 28`},
 		{s: `SHOW SHARD`, err: `found EOF, expected GROUPS at line 1, char 12`},
-		{s: `SHOW FOO`, err: `found FOO, expected CONTINUOUS, DATABASES, DIAGNOSTICS, FIELD, GRANTS, MEASUREMENTS, RETENTION, SERIES, SERVERS, SHARD, SHARDS, STATS, SUBSCRIPTIONS, TAG, USERS at line 1, char 6`},
+		{s: `SHOW FOO`, err: `found FOO, expected CONTINUOUS, DATABASES, DIAGNOSTICS, FIELD, GRANTS, MEASUREMENTS, QUERIES, RETENTION, SERIES, SERVERS, SHARD, SHARDS, STATS, SUBSCRIPTIONS, TAG, USERS at line 1, char 6`},
 		{s: `SHOW STATS FOR`, err: `found EOF, expected string at line 1, char 16`},
 		{s: `SHOW DIAGNOSTICS FOR`, err: `found EOF, expected string at line 1, char 22`},
 		{s: `SHOW GRANTS`, err: `found EOF, expected FOR at line 1, char 13`},
@@ -1758,14 +1819,14 @@ func TestParser_ParseStatement(t *testing.T) {
 		{s: `DROP FOO`, err: `found FOO, expected CONTINUOUS, DATA, MEASUREMENT, META, RETENTION, SERIES, SHARD, SUBSCRIPTION, USER at line 1, char 6`},
 		{s: `CREATE FOO`, err: `found FOO, expected CONTINUOUS, DATABASE, USER, RETENTION, SUBSCRIPTION at line 1, char 8`},
 		{s: `CREATE DATABASE`, err: `found EOF, expected identifier at line 1, char 17`},
-		{s: `CREATE DATABASE "testdb" WITH`, err: `found EOF, expected DURATION, REPLICATION, NAME at line 1, char 31`},
+		{s: `CREATE DATABASE "testdb" WITH`, err: `found EOF, expected DURATION, REPLICATION, SHARD, NAME at line 1, char 31`},
 		{s: `CREATE DATABASE "testdb" WITH DURATION`, err: `found EOF, expected duration at line 1, char 40`},
 		{s: `CREATE DATABASE "testdb" WITH REPLICATION`, err: `found EOF, expected integer at line 1, char 43`},
 		{s: `CREATE DATABASE "testdb" WITH NAME`, err: `found EOF, expected identifier at line 1, char 36`},
 		{s: `CREATE DATABASE IF`, err: `found EOF, expected NOT at line 1, char 20`},
 		{s: `CREATE DATABASE IF NOT`, err: `found EOF, expected EXISTS at line 1, char 24`},
 		{s: `CREATE DATABASE IF NOT EXISTS`, err: `found EOF, expected identifier at line 1, char 31`},
-		{s: `CREATE DATABASE IF NOT EXISTS "testdb" WITH`, err: `found EOF, expected DURATION, REPLICATION, NAME at line 1, char 45`},
+		{s: `CREATE DATABASE IF NOT EXISTS "testdb" WITH`, err: `found EOF, expected DURATION, REPLICATION, SHARD, NAME at line 1, char 45`},
 		{s: `CREATE DATABASE IF NOT EXISTS "testdb" WITH DURATION`, err: `found EOF, expected duration at line 1, char 54`},
 		{s: `CREATE DATABASE IF NOT EXISTS "testdb" WITH REPLICATION`, err: `found EOF, expected integer at line 1, char 57`},
 		{s: `CREATE DATABASE IF NOT EXISTS "testdb" WITH NAME`, err: `found EOF, expected identifier at line 1, char 50`},
@@ -1827,6 +1888,8 @@ func TestParser_ParseStatement(t *testing.T) {
 		{s: `GRANT ALL PRIVILEGES ON testdb TO`, err: `found EOF, expected identifier at line 1, char 35`},
 		{s: `GRANT ALL TO`, err: `found EOF, expected identifier at line 1, char 14`},
 		{s: `GRANT ALL PRIVILEGES TO`, err: `found EOF, expected identifier at line 1, char 25`},
+		{s: `KILL`, err: `found EOF, expected QUERY at line 1, char 6`},
+		{s: `KILL QUERY 10s`, err: `found 10s, expected integer at line 1, char 12`},
 		{s: `REVOKE`, err: `found EOF, expected READ, WRITE, ALL [PRIVILEGES] at line 1, char 8`},
 		{s: `REVOKE BOGUS`, err: `found BOGUS, expected READ, WRITE, ALL [PRIVILEGES] at line 1, char 8`},
 		{s: `REVOKE READ`, err: `found EOF, expected ON at line 1, char 13`},
@@ -1871,12 +1934,13 @@ func TestParser_ParseStatement(t *testing.T) {
 		{s: `CREATE RETENTION POLICY policy1 ON testdb DURATION 1h REPLICATION 3.14`, err: `found 3.14, expected integer at line 1, char 67`},
 		{s: `CREATE RETENTION POLICY policy1 ON testdb DURATION 1h REPLICATION 0`, err: `invalid value 0: must be 1 <= n <= 2147483647 at line 1, char 67`},
 		{s: `CREATE RETENTION POLICY policy1 ON testdb DURATION 1h REPLICATION bad`, err: `found bad, expected integer at line 1, char 67`},
-		{s: `CREATE RETENTION POLICY policy1 ON testdb DURATION 1h REPLICATION 1 foo`, err: `found foo, expected DEFAULT at line 1, char 69`},
+		{s: `CREATE RETENTION POLICY policy1 ON testdb DURATION 1h REPLICATION 1 foo`, err: `found foo, expected SHARD at line 1, char 69`},
+		{s: `CREATE RETENTION POLICY policy1 ON testdb DURATION 1h REPLICATION 1 SHARD DURATION 30m foo`, err: `found foo, expected DEFAULT at line 1, char 88`},
 		{s: `ALTER`, err: `found EOF, expected RETENTION at line 1, char 7`},
 		{s: `ALTER RETENTION`, err: `found EOF, expected POLICY at line 1, char 17`},
 		{s: `ALTER RETENTION POLICY`, err: `found EOF, expected identifier at line 1, char 24`},
 		{s: `ALTER RETENTION POLICY policy1`, err: `found EOF, expected ON at line 1, char 32`}, {s: `ALTER RETENTION POLICY policy1 ON`, err: `found EOF, expected identifier at line 1, char 35`},
-		{s: `ALTER RETENTION POLICY policy1 ON testdb`, err: `found EOF, expected DURATION, RETENTION, DEFAULT at line 1, char 42`},
+		{s: `ALTER RETENTION POLICY policy1 ON testdb`, err: `found EOF, expected DURATION, RETENTION, SHARD, DEFAULT at line 1, char 42`},
 		{s: `SET`, err: `found EOF, expected PASSWORD at line 1, char 5`},
 		{s: `SET PASSWORD`, err: `found EOF, expected FOR at line 1, char 14`},
 		{s: `SET PASSWORD something`, err: `found something, expected FOR at line 1, char 14`},
@@ -2297,7 +2361,7 @@ func errstring(err error) string {
 }
 
 // newAlterRetentionPolicyStatement creates an initialized AlterRetentionPolicyStatement.
-func newAlterRetentionPolicyStatement(name string, DB string, d time.Duration, replication int, dfault bool) *influxql.AlterRetentionPolicyStatement {
+func newAlterRetentionPolicyStatement(name string, DB string, d, sd time.Duration, replication int, dfault bool) *influxql.AlterRetentionPolicyStatement {
 	stmt := &influxql.AlterRetentionPolicyStatement{
 		Name:     name,
 		Database: DB,
@@ -2306,6 +2370,10 @@ func newAlterRetentionPolicyStatement(name string, DB string, d time.Duration, r
 
 	if d > -1 {
 		stmt.Duration = &d
+	}
+
+	if sd > -1 {
+		stmt.ShardGroupDuration = &sd
 	}
 
 	if replication > -1 {

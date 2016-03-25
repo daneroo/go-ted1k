@@ -19,10 +19,20 @@ teddb:
 
 
 tedflux:
-  image: tutum/influxdb
+  # image: tutum/influxdb:0.10
+  image: tutum/influxdb:0.9
   hostname: tedflux
   environment:
     - PRE_CREATE_DB=ted
   ports: 
     - "8083:8083"
     - "8086:8086"
+
+grafana:
+  image: grafana/grafana
+  # volumes:
+  #   - ./data/grafana/grafana.db:/var/lib/grafana/grafana.db
+  links:
+    - tedflux
+  ports:
+    - 3000:3000

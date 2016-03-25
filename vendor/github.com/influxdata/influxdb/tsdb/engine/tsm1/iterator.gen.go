@@ -9,6 +9,7 @@ package tsm1
 import (
 	"fmt"
 	"sort"
+	"sync"
 
 	"github.com/influxdata/influxdb/influxql"
 	"github.com/influxdata/influxdb/tsdb"
@@ -97,6 +98,11 @@ func (c *bufCursor) nextAt(seek int64) interface{} {
 	}
 }
 
+// statsBufferCopyIntervalN is the number of points that are read before
+// copying the stats buffer to the iterator's stats field. This is used to
+// amortize the cost of using a mutex when updating stats.
+const statsBufferCopyIntervalN = 100
+
 type floatIterator struct {
 	cur   floatCursor
 	aux   []cursorAt
@@ -108,6 +114,10 @@ type floatIterator struct {
 
 	m     map[string]interface{} // map used for condition evaluation
 	point influxql.FloatPoint    // reusable buffer
+
+	statsLock sync.Mutex
+	stats     influxql.IteratorStats
+	statsBuf  influxql.IteratorStats
 }
 
 func newFloatIterator(name string, tags influxql.Tags, opt influxql.IteratorOptions, cur floatCursor, aux []cursorAt, conds []*bufCursor, condNames []string) *floatIterator {
@@ -119,7 +129,11 @@ func newFloatIterator(name string, tags influxql.Tags, opt influxql.IteratorOpti
 			Name: name,
 			Tags: tags,
 		},
+		statsBuf: influxql.IteratorStats{
+			SeriesN: 1,
+		},
 	}
+	itr.stats = itr.statsBuf
 
 	if len(aux) > 0 {
 		itr.point.Aux = make([]interface{}, len(aux))
@@ -155,10 +169,13 @@ func (itr *floatIterator) Next() *influxql.FloatPoint {
 
 		// Exit if we have no more points or we are outside our time range.
 		if itr.point.Time == tsdb.EOF {
+			itr.copyStats()
 			return nil
 		} else if itr.opt.Ascending && itr.point.Time > itr.opt.EndTime {
+			itr.copyStats()
 			return nil
 		} else if !itr.opt.Ascending && itr.point.Time < itr.opt.StartTime {
+			itr.copyStats()
 			return nil
 		}
 
@@ -177,8 +194,28 @@ func (itr *floatIterator) Next() *influxql.FloatPoint {
 			continue
 		}
 
+		// Track points returned.
+		itr.statsBuf.PointN++
+
+		// Copy buffer to stats periodically.
+		if itr.statsBuf.PointN%statsBufferCopyIntervalN == 0 {
+			itr.copyStats()
+		}
+
 		return &itr.point
 	}
+}
+
+// copyStats copies from the itr stats buffer to the stats under lock.
+func (itr *floatIterator) copyStats() {
+}
+
+// Stats returns stats on the points processed.
+func (itr *floatIterator) Stats() influxql.IteratorStats {
+	itr.statsLock.Lock()
+	stats := itr.stats
+	itr.statsLock.Unlock()
+	return stats
 }
 
 // Close closes the iterator.
@@ -327,7 +364,7 @@ func newFloatDescendingCursor(seek int64, cacheValues Values, tsmKeyCursor *KeyC
 	}
 
 	c.tsm.keyCursor = tsmKeyCursor
-	c.tsm.buf = make([]FloatValue, 1000)
+	c.tsm.buf = make([]FloatValue, 10)
 	c.tsm.values, _ = c.tsm.keyCursor.ReadFloatBlock(c.tsm.buf)
 	c.tsm.pos = sort.Search(len(c.tsm.values), func(i int) bool {
 		return c.tsm.values[i].UnixNano() >= seek
@@ -407,7 +444,7 @@ func (c *floatDescendingCursor) nextTSM() {
 		if len(c.tsm.values) == 0 {
 			return
 		}
-		c.tsm.pos = 0
+		c.tsm.pos = len(c.tsm.values) - 1
 	}
 }
 
@@ -440,6 +477,10 @@ type integerIterator struct {
 
 	m     map[string]interface{} // map used for condition evaluation
 	point influxql.IntegerPoint  // reusable buffer
+
+	statsLock sync.Mutex
+	stats     influxql.IteratorStats
+	statsBuf  influxql.IteratorStats
 }
 
 func newIntegerIterator(name string, tags influxql.Tags, opt influxql.IteratorOptions, cur integerCursor, aux []cursorAt, conds []*bufCursor, condNames []string) *integerIterator {
@@ -451,7 +492,11 @@ func newIntegerIterator(name string, tags influxql.Tags, opt influxql.IteratorOp
 			Name: name,
 			Tags: tags,
 		},
+		statsBuf: influxql.IteratorStats{
+			SeriesN: 1,
+		},
 	}
+	itr.stats = itr.statsBuf
 
 	if len(aux) > 0 {
 		itr.point.Aux = make([]interface{}, len(aux))
@@ -487,10 +532,13 @@ func (itr *integerIterator) Next() *influxql.IntegerPoint {
 
 		// Exit if we have no more points or we are outside our time range.
 		if itr.point.Time == tsdb.EOF {
+			itr.copyStats()
 			return nil
 		} else if itr.opt.Ascending && itr.point.Time > itr.opt.EndTime {
+			itr.copyStats()
 			return nil
 		} else if !itr.opt.Ascending && itr.point.Time < itr.opt.StartTime {
+			itr.copyStats()
 			return nil
 		}
 
@@ -509,8 +557,28 @@ func (itr *integerIterator) Next() *influxql.IntegerPoint {
 			continue
 		}
 
+		// Track points returned.
+		itr.statsBuf.PointN++
+
+		// Copy buffer to stats periodically.
+		if itr.statsBuf.PointN%statsBufferCopyIntervalN == 0 {
+			itr.copyStats()
+		}
+
 		return &itr.point
 	}
+}
+
+// copyStats copies from the itr stats buffer to the stats under lock.
+func (itr *integerIterator) copyStats() {
+}
+
+// Stats returns stats on the points processed.
+func (itr *integerIterator) Stats() influxql.IteratorStats {
+	itr.statsLock.Lock()
+	stats := itr.stats
+	itr.statsLock.Unlock()
+	return stats
 }
 
 // Close closes the iterator.
@@ -659,7 +727,7 @@ func newIntegerDescendingCursor(seek int64, cacheValues Values, tsmKeyCursor *Ke
 	}
 
 	c.tsm.keyCursor = tsmKeyCursor
-	c.tsm.buf = make([]IntegerValue, 1000)
+	c.tsm.buf = make([]IntegerValue, 10)
 	c.tsm.values, _ = c.tsm.keyCursor.ReadIntegerBlock(c.tsm.buf)
 	c.tsm.pos = sort.Search(len(c.tsm.values), func(i int) bool {
 		return c.tsm.values[i].UnixNano() >= seek
@@ -739,7 +807,7 @@ func (c *integerDescendingCursor) nextTSM() {
 		if len(c.tsm.values) == 0 {
 			return
 		}
-		c.tsm.pos = 0
+		c.tsm.pos = len(c.tsm.values) - 1
 	}
 }
 
@@ -772,6 +840,10 @@ type stringIterator struct {
 
 	m     map[string]interface{} // map used for condition evaluation
 	point influxql.StringPoint   // reusable buffer
+
+	statsLock sync.Mutex
+	stats     influxql.IteratorStats
+	statsBuf  influxql.IteratorStats
 }
 
 func newStringIterator(name string, tags influxql.Tags, opt influxql.IteratorOptions, cur stringCursor, aux []cursorAt, conds []*bufCursor, condNames []string) *stringIterator {
@@ -783,7 +855,11 @@ func newStringIterator(name string, tags influxql.Tags, opt influxql.IteratorOpt
 			Name: name,
 			Tags: tags,
 		},
+		statsBuf: influxql.IteratorStats{
+			SeriesN: 1,
+		},
 	}
+	itr.stats = itr.statsBuf
 
 	if len(aux) > 0 {
 		itr.point.Aux = make([]interface{}, len(aux))
@@ -819,10 +895,13 @@ func (itr *stringIterator) Next() *influxql.StringPoint {
 
 		// Exit if we have no more points or we are outside our time range.
 		if itr.point.Time == tsdb.EOF {
+			itr.copyStats()
 			return nil
 		} else if itr.opt.Ascending && itr.point.Time > itr.opt.EndTime {
+			itr.copyStats()
 			return nil
 		} else if !itr.opt.Ascending && itr.point.Time < itr.opt.StartTime {
+			itr.copyStats()
 			return nil
 		}
 
@@ -841,8 +920,28 @@ func (itr *stringIterator) Next() *influxql.StringPoint {
 			continue
 		}
 
+		// Track points returned.
+		itr.statsBuf.PointN++
+
+		// Copy buffer to stats periodically.
+		if itr.statsBuf.PointN%statsBufferCopyIntervalN == 0 {
+			itr.copyStats()
+		}
+
 		return &itr.point
 	}
+}
+
+// copyStats copies from the itr stats buffer to the stats under lock.
+func (itr *stringIterator) copyStats() {
+}
+
+// Stats returns stats on the points processed.
+func (itr *stringIterator) Stats() influxql.IteratorStats {
+	itr.statsLock.Lock()
+	stats := itr.stats
+	itr.statsLock.Unlock()
+	return stats
 }
 
 // Close closes the iterator.
@@ -991,7 +1090,7 @@ func newStringDescendingCursor(seek int64, cacheValues Values, tsmKeyCursor *Key
 	}
 
 	c.tsm.keyCursor = tsmKeyCursor
-	c.tsm.buf = make([]StringValue, 1000)
+	c.tsm.buf = make([]StringValue, 10)
 	c.tsm.values, _ = c.tsm.keyCursor.ReadStringBlock(c.tsm.buf)
 	c.tsm.pos = sort.Search(len(c.tsm.values), func(i int) bool {
 		return c.tsm.values[i].UnixNano() >= seek
@@ -1071,7 +1170,7 @@ func (c *stringDescendingCursor) nextTSM() {
 		if len(c.tsm.values) == 0 {
 			return
 		}
-		c.tsm.pos = 0
+		c.tsm.pos = len(c.tsm.values) - 1
 	}
 }
 
@@ -1104,6 +1203,10 @@ type booleanIterator struct {
 
 	m     map[string]interface{} // map used for condition evaluation
 	point influxql.BooleanPoint  // reusable buffer
+
+	statsLock sync.Mutex
+	stats     influxql.IteratorStats
+	statsBuf  influxql.IteratorStats
 }
 
 func newBooleanIterator(name string, tags influxql.Tags, opt influxql.IteratorOptions, cur booleanCursor, aux []cursorAt, conds []*bufCursor, condNames []string) *booleanIterator {
@@ -1115,7 +1218,11 @@ func newBooleanIterator(name string, tags influxql.Tags, opt influxql.IteratorOp
 			Name: name,
 			Tags: tags,
 		},
+		statsBuf: influxql.IteratorStats{
+			SeriesN: 1,
+		},
 	}
+	itr.stats = itr.statsBuf
 
 	if len(aux) > 0 {
 		itr.point.Aux = make([]interface{}, len(aux))
@@ -1151,10 +1258,13 @@ func (itr *booleanIterator) Next() *influxql.BooleanPoint {
 
 		// Exit if we have no more points or we are outside our time range.
 		if itr.point.Time == tsdb.EOF {
+			itr.copyStats()
 			return nil
 		} else if itr.opt.Ascending && itr.point.Time > itr.opt.EndTime {
+			itr.copyStats()
 			return nil
 		} else if !itr.opt.Ascending && itr.point.Time < itr.opt.StartTime {
+			itr.copyStats()
 			return nil
 		}
 
@@ -1173,8 +1283,28 @@ func (itr *booleanIterator) Next() *influxql.BooleanPoint {
 			continue
 		}
 
+		// Track points returned.
+		itr.statsBuf.PointN++
+
+		// Copy buffer to stats periodically.
+		if itr.statsBuf.PointN%statsBufferCopyIntervalN == 0 {
+			itr.copyStats()
+		}
+
 		return &itr.point
 	}
+}
+
+// copyStats copies from the itr stats buffer to the stats under lock.
+func (itr *booleanIterator) copyStats() {
+}
+
+// Stats returns stats on the points processed.
+func (itr *booleanIterator) Stats() influxql.IteratorStats {
+	itr.statsLock.Lock()
+	stats := itr.stats
+	itr.statsLock.Unlock()
+	return stats
 }
 
 // Close closes the iterator.
@@ -1323,7 +1453,7 @@ func newBooleanDescendingCursor(seek int64, cacheValues Values, tsmKeyCursor *Ke
 	}
 
 	c.tsm.keyCursor = tsmKeyCursor
-	c.tsm.buf = make([]BooleanValue, 1000)
+	c.tsm.buf = make([]BooleanValue, 10)
 	c.tsm.values, _ = c.tsm.keyCursor.ReadBooleanBlock(c.tsm.buf)
 	c.tsm.pos = sort.Search(len(c.tsm.values), func(i int) bool {
 		return c.tsm.values[i].UnixNano() >= seek
@@ -1403,7 +1533,7 @@ func (c *booleanDescendingCursor) nextTSM() {
 		if len(c.tsm.values) == 0 {
 			return
 		}
-		c.tsm.pos = 0
+		c.tsm.pos = len(c.tsm.values) - 1
 	}
 }
 

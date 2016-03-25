@@ -36,6 +36,15 @@ type QueryExecutor struct {
 	// Used for rewriting points back into system for SELECT INTO statements.
 	PointsWriter *PointsWriter
 
+	// Used for managing and tracking running queries.
+	QueryManager influxql.QueryManager
+
+	// Query execution timeout.
+	QueryTimeout time.Duration
+
+	// Select statement limits
+	MaxSelectSeriesN int
+
 	// Remote execution timeout
 	Timeout time.Duration
 
@@ -56,9 +65,10 @@ const (
 // NewQueryExecutor returns a new instance of QueryExecutor.
 func NewQueryExecutor() *QueryExecutor {
 	return &QueryExecutor{
-		Timeout:   DefaultShardMapperTimeout,
-		LogOutput: ioutil.Discard,
-		statMap:   influxdb.NewStatistics("queryExecutor", "queryExecutor", nil),
+		Timeout:      DefaultShardMapperTimeout,
+		QueryTimeout: DefaultQueryTimeout,
+		LogOutput:    ioutil.Discard,
+		statMap:      influxdb.NewStatistics("queryExecutor", "queryExecutor", nil),
 	}
 }
 
@@ -69,7 +79,7 @@ func (e *QueryExecutor) ExecuteQuery(query *influxql.Query, database string, chu
 	return results
 }
 
-func (e *QueryExecutor) executeQuery(query *influxql.Query, database string, chunkSize int, closing chan struct{}, results chan *influxql.Result) {
+func (e *QueryExecutor) executeQuery(query *influxql.Query, database string, chunkSize int, closing <-chan struct{}, results chan *influxql.Result) {
 	defer close(results)
 
 	e.statMap.Add(statQueriesActive, 1)
@@ -77,6 +87,20 @@ func (e *QueryExecutor) executeQuery(query *influxql.Query, database string, chu
 		e.statMap.Add(statQueriesActive, -1)
 		e.statMap.Add(statQueryExecutionDuration, time.Since(start).Nanoseconds())
 	}(time.Now())
+
+	if e.QueryManager != nil {
+		var err error
+		_, closing, err = e.QueryManager.AttachQuery(&influxql.QueryParams{
+			Query:       query,
+			Database:    database,
+			Timeout:     e.QueryTimeout,
+			InterruptCh: closing,
+		})
+		if err != nil {
+			results <- &influxql.Result{Err: err}
+			return
+		}
+	}
 
 	logger := e.logger()
 
@@ -155,6 +179,8 @@ func (e *QueryExecutor) executeQuery(query *influxql.Query, database string, chu
 			err = e.executeGrantStatement(stmt)
 		case *influxql.GrantAdminStatement:
 			err = e.executeGrantAdminStatement(stmt)
+		case *influxql.KillQueryStatement:
+			err = e.executeKillQueryStatement(stmt)
 		case *influxql.RevokeStatement:
 			err = e.executeRevokeStatement(stmt)
 		case *influxql.RevokeAdminStatement:
@@ -167,6 +193,8 @@ func (e *QueryExecutor) executeQuery(query *influxql.Query, database string, chu
 			rows, err = e.executeShowDiagnosticsStatement(stmt)
 		case *influxql.ShowGrantsForUserStatement:
 			rows, err = e.executeShowGrantsForUserStatement(stmt)
+		case *influxql.ShowQueriesStatement:
+			rows, err = e.executeShowQueriesStatement(stmt)
 		case *influxql.ShowRetentionPoliciesStatement:
 			rows, err = e.executeShowRetentionPoliciesStatement(stmt)
 		case *influxql.ShowServersStatement:
@@ -197,7 +225,7 @@ func (e *QueryExecutor) executeQuery(query *influxql.Query, database string, chu
 			Err:         err,
 		}
 
-		// Stop of the first error.
+		// Stop after the first error.
 		if err != nil {
 			break
 		}
@@ -214,8 +242,9 @@ func (e *QueryExecutor) executeQuery(query *influxql.Query, database string, chu
 
 func (e *QueryExecutor) executeAlterRetentionPolicyStatement(stmt *influxql.AlterRetentionPolicyStatement) error {
 	rpu := &meta.RetentionPolicyUpdate{
-		Duration: stmt.Duration,
-		ReplicaN: stmt.Replication,
+		Duration:           stmt.Duration,
+		ReplicaN:           stmt.Replication,
+		ShardGroupDuration: stmt.ShardGroupDuration,
 	}
 
 	// Update the retention policy.
@@ -246,6 +275,7 @@ func (e *QueryExecutor) executeCreateDatabaseStatement(stmt *influxql.CreateData
 	rpi := meta.NewRetentionPolicyInfo(stmt.RetentionPolicyName)
 	rpi.Duration = stmt.RetentionPolicyDuration
 	rpi.ReplicaN = stmt.RetentionPolicyReplication
+	rpi.ShardGroupDuration = stmt.RetentionPolicyShardGroupDuration
 	_, err := e.MetaClient.CreateDatabaseWithRetentionPolicy(stmt.Name, rpi)
 	return err
 }
@@ -254,6 +284,7 @@ func (e *QueryExecutor) executeCreateRetentionPolicyStatement(stmt *influxql.Cre
 	rpi := meta.NewRetentionPolicyInfo(stmt.Name)
 	rpi.Duration = stmt.Duration
 	rpi.ReplicaN = stmt.Replication
+	rpi.ShardGroupDuration = stmt.ShardGroupDuration
 
 	// Create new retention policy.
 	if _, err := e.MetaClient.CreateRetentionPolicy(stmt.Database, rpi); err != nil {
@@ -357,6 +388,13 @@ func (e *QueryExecutor) executeGrantAdminStatement(stmt *influxql.GrantAdminStat
 	return e.MetaClient.SetAdminPrivilege(stmt.User, true)
 }
 
+func (e *QueryExecutor) executeKillQueryStatement(stmt *influxql.KillQueryStatement) error {
+	if e.QueryManager == nil {
+		return influxql.ErrNoQueryManager
+	}
+	return e.QueryManager.KillQuery(stmt.QueryID)
+}
+
 func (e *QueryExecutor) executeRevokeStatement(stmt *influxql.RevokeStatement) error {
 	priv := influxql.NoPrivileges
 
@@ -384,7 +422,7 @@ func (e *QueryExecutor) executeSetPasswordUserStatement(q *influxql.SetPasswordU
 func (e *QueryExecutor) executeSelectStatement(stmt *influxql.SelectStatement, chunkSize, statementID int, results chan *influxql.Result, closing <-chan struct{}) error {
 	// It is important to "stamp" this time so that everywhere we evaluate `now()` in the statement is EXACTLY the same `now`
 	now := time.Now().UTC()
-	opt := influxql.SelectOptions{}
+	opt := influxql.SelectOptions{InterruptCh: closing}
 
 	// Replace instances of "now()" with the current time, and check the resultant times.
 	stmt.Condition = influxql.Reduce(stmt.Condition, &influxql.NowValuer{Now: now})
@@ -436,12 +474,24 @@ func (e *QueryExecutor) executeSelectStatement(stmt *influxql.SelectStatement, c
 	em.OmitTime = stmt.OmitTime
 	defer em.Close()
 
+	// Calculate initial stats across all iterators.
+	stats := influxql.Iterators(itrs).Stats()
+	if e.MaxSelectSeriesN > 0 && stats.SeriesN > e.MaxSelectSeriesN {
+		return fmt.Errorf("max select series count exceeded: %d series", stats.SeriesN)
+	}
+
 	// Emit rows to the results channel.
 	var writeN int64
 	var emitted bool
 	for {
 		row := em.Emit()
 		if row == nil {
+			// Check if the query was interrupted while emitting.
+			select {
+			case <-closing:
+				return influxql.ErrQueryInterrupted
+			default:
+			}
 			break
 		}
 
@@ -462,7 +512,7 @@ func (e *QueryExecutor) executeSelectStatement(stmt *influxql.SelectStatement, c
 		// Send results or exit if closing.
 		select {
 		case <-closing:
-			return nil
+			return influxql.ErrQueryInterrupted
 		case results <- result:
 		}
 
@@ -597,6 +647,10 @@ func (e *QueryExecutor) executeShowGrantsForUserStatement(q *influxql.ShowGrants
 	return []*models.Row{row}, nil
 }
 
+func (e *QueryExecutor) executeShowQueriesStatement(q *influxql.ShowQueriesStatement) (models.Rows, error) {
+	return influxql.ExecuteShowQueriesStatement(e.QueryManager, q)
+}
+
 func (e *QueryExecutor) executeShowRetentionPoliciesStatement(q *influxql.ShowRetentionPoliciesStatement) (models.Rows, error) {
 	di, err := e.MetaClient.Database(q.Database)
 	if err != nil {
@@ -605,9 +659,9 @@ func (e *QueryExecutor) executeShowRetentionPoliciesStatement(q *influxql.ShowRe
 		return nil, influxdb.ErrDatabaseNotFound(q.Database)
 	}
 
-	row := &models.Row{Columns: []string{"name", "duration", "replicaN", "default"}}
+	row := &models.Row{Columns: []string{"name", "duration", "shardGroupDuration", "replicaN", "default"}}
 	for _, rpi := range di.RetentionPolicies {
-		row.Values = append(row.Values, []interface{}{rpi.Name, rpi.Duration.String(), rpi.ReplicaN, di.DefaultRetentionPolicy == rpi.Name})
+		row.Values = append(row.Values, []interface{}{rpi.Name, rpi.Duration.String(), rpi.ShardGroupDuration.String(), rpi.ReplicaN, di.DefaultRetentionPolicy == rpi.Name})
 	}
 	return []*models.Row{row}, nil
 }

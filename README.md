@@ -6,6 +6,12 @@
 - Refactor Progress (TimeTrack...) Interceptor channel ?
 
 ## Vendoring
+
+[Usage](https://github.com/govend/govend):
+
+	govend -v  # download all the dependencies in the vendor.yml file
+	govend -v -u # scan your project, update all dependencies, and update the vendor.yml revision versions
+
 See this [Go/Wiki for reference](https://github.com/golang/go/wiki/PackageManagementTools)
 
 We want to use `GO15VENDOREXPERIMENT=1` and place our external dependencies in a `vendor folder`.

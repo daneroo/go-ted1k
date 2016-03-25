@@ -108,6 +108,7 @@ func (*DropSubscriptionStatement) node()      {}
 func (*DropUserStatement) node()              {}
 func (*GrantStatement) node()                 {}
 func (*GrantAdminStatement) node()            {}
+func (*KillQueryStatement) node()             {}
 func (*RevokeStatement) node()                {}
 func (*RevokeAdminStatement) node()           {}
 func (*SelectStatement) node()                {}
@@ -119,6 +120,7 @@ func (*ShowDatabasesStatement) node()         {}
 func (*ShowFieldKeysStatement) node()         {}
 func (*ShowRetentionPoliciesStatement) node() {}
 func (*ShowMeasurementsStatement) node()      {}
+func (*ShowQueriesStatement) node()           {}
 func (*ShowSeriesStatement) node()            {}
 func (*ShowShardGroupsStatement) node()       {}
 func (*ShowShardsStatement) node()            {}
@@ -220,12 +222,14 @@ func (*DropSubscriptionStatement) stmt()      {}
 func (*DropUserStatement) stmt()              {}
 func (*GrantStatement) stmt()                 {}
 func (*GrantAdminStatement) stmt()            {}
+func (*KillQueryStatement) stmt()             {}
 func (*ShowContinuousQueriesStatement) stmt() {}
 func (*ShowGrantsForUserStatement) stmt()     {}
 func (*ShowServersStatement) stmt()           {}
 func (*ShowDatabasesStatement) stmt()         {}
 func (*ShowFieldKeysStatement) stmt()         {}
 func (*ShowMeasurementsStatement) stmt()      {}
+func (*ShowQueriesStatement) stmt()           {}
 func (*ShowRetentionPoliciesStatement) stmt() {}
 func (*ShowSeriesStatement) stmt()            {}
 func (*ShowShardGroupsStatement) stmt()       {}
@@ -440,6 +444,9 @@ type CreateDatabaseStatement struct {
 
 	// RetentionPolicyName indicates retention name for the new database
 	RetentionPolicyName string
+
+	// RetentionPolicyShardGroupDuration indicates shard group duration for the new database
+	RetentionPolicyShardGroupDuration time.Duration
 }
 
 // String returns a string representation of the create database statement.
@@ -455,6 +462,10 @@ func (s *CreateDatabaseStatement) String() string {
 		_, _ = buf.WriteString(s.RetentionPolicyDuration.String())
 		_, _ = buf.WriteString(" REPLICATION ")
 		_, _ = buf.WriteString(strconv.Itoa(s.RetentionPolicyReplication))
+		if s.RetentionPolicyShardGroupDuration > 0 {
+			_, _ = buf.WriteString(" SHARD DURATION ")
+			_, _ = buf.WriteString(s.RetentionPolicyShardGroupDuration.String())
+		}
 		_, _ = buf.WriteString(" NAME ")
 		_, _ = buf.WriteString(QuoteIdent(s.RetentionPolicyName))
 	}
@@ -646,6 +657,19 @@ func (s *GrantAdminStatement) RequiredPrivileges() ExecutionPrivileges {
 	return ExecutionPrivileges{{Admin: true, Name: "", Privilege: AllPrivileges}}
 }
 
+type KillQueryStatement struct {
+	// The query to kill.
+	QueryID uint64
+}
+
+func (s *KillQueryStatement) String() string {
+	return fmt.Sprintf("KILL QUERY %d", s.QueryID)
+}
+
+func (s *KillQueryStatement) RequiredPrivileges() ExecutionPrivileges {
+	return ExecutionPrivileges{{Admin: true, Name: "", Privilege: AllPrivileges}}
+}
+
 // SetPasswordUserStatement represents a command for changing user password.
 type SetPasswordUserStatement struct {
 	// Plain Password
@@ -734,6 +758,9 @@ type CreateRetentionPolicyStatement struct {
 
 	// Should this policy be set as default for the database?
 	Default bool
+
+	// Shard Duration
+	ShardGroupDuration time.Duration
 }
 
 // String returns a string representation of the create retention policy.
@@ -747,6 +774,10 @@ func (s *CreateRetentionPolicyStatement) String() string {
 	_, _ = buf.WriteString(FormatDuration(s.Duration))
 	_, _ = buf.WriteString(" REPLICATION ")
 	_, _ = buf.WriteString(strconv.Itoa(s.Replication))
+	if s.ShardGroupDuration > 0 {
+		_, _ = buf.WriteString(" SHARD DURATION ")
+		_, _ = buf.WriteString(FormatDuration(s.ShardGroupDuration))
+	}
 	if s.Default {
 		_, _ = buf.WriteString(" DEFAULT")
 	}
@@ -774,6 +805,9 @@ type AlterRetentionPolicyStatement struct {
 
 	// Should this policy be set as defalut for the database?
 	Default bool
+
+	// Duration of the Shard
+	ShardGroupDuration *time.Duration
 }
 
 // String returns a string representation of the alter retention policy statement.
@@ -792,6 +826,11 @@ func (s *AlterRetentionPolicyStatement) String() string {
 	if s.Replication != nil {
 		_, _ = buf.WriteString(" REPLICATION ")
 		_, _ = buf.WriteString(strconv.Itoa(*s.Replication))
+	}
+
+	if s.ShardGroupDuration != nil {
+		_, _ = buf.WriteString(" SHARD DURATION ")
+		_, _ = buf.WriteString(FormatDuration(*s.ShardGroupDuration))
 	}
 
 	if s.Default {
@@ -1431,7 +1470,6 @@ func (s *SelectStatement) validPercentileAggr(expr *Call) error {
 	default:
 		return fmt.Errorf("expected float argument in percentile()")
 	}
-	return nil
 }
 
 func (s *SelectStatement) validateAggregates(tr targetRequirement) error {
@@ -2399,6 +2437,19 @@ func (s *DropMeasurementStatement) String() string {
 // RequiredPrivileges returns the privilege(s) required to execute a DropMeasurementStatement
 func (s *DropMeasurementStatement) RequiredPrivileges() ExecutionPrivileges {
 	return ExecutionPrivileges{{Admin: true, Name: "", Privilege: AllPrivileges}}
+}
+
+// SowQueriesStatement represents a command for listing all running queries.
+type ShowQueriesStatement struct{}
+
+// String returns a string representation of the show queries statement.
+func (s *ShowQueriesStatement) String() string {
+	return "SHOW QUERIES"
+}
+
+// RequiredPrivileges returns the privilege required to execute a ShowQueriesStatement.
+func (s *ShowQueriesStatement) RequiredPrivileges() ExecutionPrivileges {
+	return ExecutionPrivileges{{Admin: false, Name: "", Privilege: ReadPrivilege}}
 }
 
 // ShowRetentionPoliciesStatement represents a command for listing retention policies.
@@ -3644,16 +3695,16 @@ func evalBinaryExpr(expr *BinaryExpr, m map[string]interface{}) interface{} {
 	// Evaluate if both sides are simple types.
 	switch lhs := lhs.(type) {
 	case bool:
-		rhs, _ := rhs.(bool)
+		rhs, ok := rhs.(bool)
 		switch expr.Op {
 		case AND:
-			return lhs && rhs
+			return ok && (lhs && rhs)
 		case OR:
-			return lhs || rhs
+			return ok && (lhs || rhs)
 		case EQ:
-			return lhs == rhs
+			return ok && (lhs == rhs)
 		case NEQ:
-			return lhs != rhs
+			return ok && (lhs != rhs)
 		}
 	case float64:
 		// Try the rhs as a float64 or int64

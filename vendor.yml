@@ -1,15 +1,13 @@
 vendors:
 - path: github.com/daneroo/timewalker
-  rev: 367e0b92f70b11688d0ee7f8a15de673f1d4308b
+  rev: 321795708f130b64a02b8cb84eb243cbb39a89c7
 - path: github.com/go-sql-driver/mysql
   rev: 66312f7fe2678aa0f5ec770f96702f4c4ec5aa8e
 - path: github.com/influxdata/influxdb
-  rev: d61d75f55dae702e9bdf5a92eb62f1dfb6eb76bb
-- path: github.com/influxdb/influxdb
-  rev: d61d75f55dae702e9bdf5a92eb62f1dfb6eb76bb
+  rev: 97f55e6930e9a2d6876165ba1efabfee53ea5c12
 - path: github.com/jmoiron/sqlx
   rev: 398dd5876282499cdfd4cb8ea0f31a672abe9495
 - path: github.com/lib/pq
-  rev: 165a3529e799da61ab10faed1fabff3662d6193f
+  rev: 3cd0097429be7d611bb644ef85b42bfb102ceea4
 - path: github.com/mattn/go-sqlite3
-  rev: 76e335f60bbcee20755df9864f0153af1a80ad2d
+  rev: 37aa7c6f5bc95b7264de70cd1f0ca1d39228ebd6

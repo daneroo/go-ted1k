@@ -5,10 +5,24 @@
 - [#6012](https://github.com/influxdata/influxdb/pull/6012): Add DROP SHARD support.
 - [#6025](https://github.com/influxdata/influxdb/pull/6025): Remove deprecated JSON write path.
 - [#5744](https://github.com/influxdata/influxdb/issues/5744): Add integer literal support to the query language.
+- [#5939](https://github.com/influxdata/influxdb/issues/5939): Support viewing and killing running queries.
+- [#6073](https://github.com/influxdata/influxdb/pull/6073): Iterator stats
+- [#6079](https://github.com/influxdata/influxdb/issues/6079): Limit the maximum number of concurrent queries.
+- [#6075](https://github.com/influxdata/influxdb/issues/6075): Limit the maximum running time of a query.
+- [#6102](https://github.com/influxdata/influxdb/issues/6102): Limit series count in selection
+- [#6060](https://github.com/influxdata/influxdb/pull/6060): Add configurable shard duration to retention policies
+- [#6116](https://github.com/influxdata/influxdb/pull/6116): Allow `httpd` service to be extensible for routes
+- [#6111](https://github.com/influxdata/influxdb/pull/6111): Add ability to build static assest. Improved handling of TAR and ZIP package outputs.
 
 ### Bugfixes
 
-## v0.11.0 [unreleased]
+- [#5152](https://github.com/influxdata/influxdb/issues/5152): Fix where filters when a tag and a filter are combined with OR.
+- [#5728](https://github.com/influxdata/influxdb/issues/5728): Properly handle semi-colons as part of the main query loop.
+- [#6065](https://github.com/influxdata/influxdb/pull/6065):  Wait for a process termination on influxdb restart @simnv
+- [#5252](https://github.com/influxdata/influxdb/issues/5252): Release tarballs contain specific attributes on '.'
+- [#5554](https://github.com/influxdata/influxdb/issues/5554): Can't run in alpine linux
+
+## v0.11.0 [2016-03-22]
 
 ### Release Notes
 
@@ -89,6 +103,7 @@ There were some important breaking changes in this release. Here's a list of the
 - [#5965](https://github.com/influxdata/influxdb/issues/5965): InfluxDB panic crashes while parsing "-" as Float
 - [#5835](https://github.com/influxdata/influxdb/issues/5835): Make CREATE USER default to IF NOT EXISTS
 - [#6042](https://github.com/influxdata/influxdb/issues/6042): CreateDatabase failure on Windows, regression from v0.11.0 RC @mvadu
+- [#5889](https://github.com/influxdata/influxdb/issues/5889): Fix writing partial TSM index when flush file fails
 
 ## v0.10.3 [2016-03-09]
 

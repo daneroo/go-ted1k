@@ -12,6 +12,7 @@ import (
 
 	"github.com/influxdata/influxdb"
 	"github.com/influxdata/influxdb/cluster"
+	"github.com/influxdata/influxdb/influxql"
 	"github.com/influxdata/influxdb/models"
 	"github.com/influxdata/influxdb/monitor"
 	"github.com/influxdata/influxdb/services/copier"
@@ -147,9 +148,6 @@ func NewServer(c *Config, buildInfo *BuildInfo) (*Server, error) {
 
 	// Copy TSDB configuration.
 	s.TSDBStore.EngineOptions.EngineVersion = c.Data.Engine
-	s.TSDBStore.EngineOptions.MaxWALSize = c.Data.MaxWALSize
-	s.TSDBStore.EngineOptions.WALFlushInterval = time.Duration(c.Data.WALFlushInterval)
-	s.TSDBStore.EngineOptions.WALPartitionFlushDelay = time.Duration(c.Data.WALPartitionFlushDelay)
 
 	// Create the Subscriber service
 	s.Subscriber = subscriber.NewService(c.Subscriber)
@@ -166,6 +164,9 @@ func NewServer(c *Config, buildInfo *BuildInfo) (*Server, error) {
 	s.QueryExecutor.TSDBStore = s.TSDBStore
 	s.QueryExecutor.Monitor = s.Monitor
 	s.QueryExecutor.PointsWriter = s.PointsWriter
+	s.QueryExecutor.QueryTimeout = time.Duration(c.Cluster.QueryTimeout)
+	s.QueryExecutor.QueryManager = influxql.DefaultQueryManager(c.Cluster.MaxConcurrentQueries)
+	s.QueryExecutor.MaxSelectSeriesN = c.Cluster.MaxSelectSeriesN
 	if c.Data.QueryLogEnabled {
 		s.QueryExecutor.LogOutput = os.Stderr
 	}

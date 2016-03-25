@@ -14,6 +14,10 @@ type SelectOptions struct {
 
 	// The upper bound for a select call.
 	MaxTime time.Time
+
+	// An optional channel that, if closed, signals that the select should be
+	// interrupted.
+	InterruptCh <-chan struct{}
 }
 
 // Select executes stmt against ic and returns a list of iterators to stream from.
@@ -343,6 +347,9 @@ func buildExprIterator(expr Expr, ic IteratorCreator, opt IteratorOptions) (Iter
 			}
 			if !opt.Interval.IsZero() && opt.Fill != NoFill {
 				itr = NewFillIterator(itr, expr, opt)
+			}
+			if opt.InterruptCh != nil {
+				itr = NewInterruptIterator(itr, opt.InterruptCh)
 			}
 			return itr, nil
 		}
