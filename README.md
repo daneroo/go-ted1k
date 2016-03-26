@@ -11,6 +11,11 @@
 	govend -v  # download all the dependencies in the vendor.yml file
 	govend -v -u # scan your project, update all dependencies, and update the vendor.yml revision versions
 
+[New/Update]
+
+	govend github.com/gorilla/mux  # add
+	govend -u github.com/gorilla/mux # update
+
 To install [`govend`](https://github.com/gophersaurus/govend) itself:
 
 	go get -u github.com/govend/govend
