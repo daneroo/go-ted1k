@@ -3,8 +3,8 @@ package ignore
 import (
 	"time"
 
-	. "github.com/daneroo/go-mysqltest/types"
-	. "github.com/daneroo/go-mysqltest/util"
+	. "github.com/daneroo/go-ted1k/types"
+	. "github.com/daneroo/go-ted1k/util"
 )
 
 func Write(src <-chan Entry) {

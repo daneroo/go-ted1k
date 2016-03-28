@@ -4,8 +4,8 @@ import (
 	"log"
 	"time"
 
-	. "github.com/daneroo/go-mysqltest/types"
-	. "github.com/daneroo/go-mysqltest/util"
+	. "github.com/daneroo/go-ted1k/types"
+	. "github.com/daneroo/go-ted1k/util"
 	"github.com/daneroo/timewalker"
 )
 

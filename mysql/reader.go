@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	. "github.com/daneroo/go-mysqltest/types"
-	. "github.com/daneroo/go-mysqltest/util"
+	. "github.com/daneroo/go-ted1k/types"
+	. "github.com/daneroo/go-ted1k/util"
 	"github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
 )

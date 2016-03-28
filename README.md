@@ -1,4 +1,4 @@
-# MySQL test with Go
+# Ted1k with Go
 
 ## Todo
 

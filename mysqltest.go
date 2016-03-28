@@ -1,17 +1,16 @@
 package main
 
 import (
-	// "github.com/daneroo/go-mysqltest/flux"
 	"fmt"
 	"log"
 	"time"
 
-	"github.com/daneroo/go-mysqltest/flux"
-	"github.com/daneroo/go-mysqltest/ignore"
-	"github.com/daneroo/go-mysqltest/jsonl"
-	"github.com/daneroo/go-mysqltest/mysql"
-	"github.com/daneroo/go-mysqltest/progress"
-	. "github.com/daneroo/go-mysqltest/util"
+	"github.com/daneroo/go-ted1k/flux"
+	"github.com/daneroo/go-ted1k/ignore"
+	"github.com/daneroo/go-ted1k/jsonl"
+	"github.com/daneroo/go-ted1k/mysql"
+	"github.com/daneroo/go-ted1k/progress"
+	. "github.com/daneroo/go-ted1k/util"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
 )
