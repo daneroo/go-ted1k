@@ -65,7 +65,7 @@ func main() {
 	log.Printf("jsonl.Writer: %v", jsonlWriter)
 
 	// 320k entries/s
-	// ignore.Write(monitor.Monitor(myReader.Read()))
+	ignore.Write(monitor.Monitor(myReader.Read()))
 
 	// 3.5k entries/s
 	// myWriter.Write(monitor.Monitor(myReader.Read()))
@@ -77,7 +77,7 @@ func main() {
 	// jsonlWriter.Write(monitor.Monitor(myReader.Read()))
 
 	// 230k entries/s
-	ignore.Write(monitor.Monitor(jsonlReader.Read()))
+	// ignore.Write(monitor.Monitor(jsonlReader.Read()))
 
 }
 

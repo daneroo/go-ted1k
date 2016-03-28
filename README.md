@@ -40,7 +40,7 @@ I should implement my own select .. into (in go), using tablenames as in mysql
 
 ## Docker
 We have abandoned data volumes for now.
-`docker-compose` command brings up MySQL and InfluxDB instances, and the `restore` script restores a MySQL snapshot/
+`docker-compose` command brings up MySQL, InfluxDB and Grafana instances, and the `restore-db.sh` script restores a MySQL snapshot/
 
 	docker-compose up -d
 	./restore-db.sh

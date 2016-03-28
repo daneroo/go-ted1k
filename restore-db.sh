@@ -37,7 +37,7 @@ restoreSnapshot() {
 	bzcat  ${SNAPSHOTFILE} | $mysqlExecCmd
 	echo
 
-	echo "- Expect something recent in Gps table"
+	echo "- Expect something recent in watt table"
 	echo "select min(stamp),max(stamp),count(*) from watt" | $mysqlExecCmd
 	echo
 }
