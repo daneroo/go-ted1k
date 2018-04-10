@@ -26,7 +26,7 @@ type Writer struct {
 
 func DefaultWriter() *Writer {
 	w := &Writer{
-		Host:           "docker",
+		Host:           "0.0.0.0",
 		Port:           8086,
 		DB:             "ted",
 		Measurement:    "watt",

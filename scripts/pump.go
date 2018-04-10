@@ -16,10 +16,21 @@ import (
 )
 
 const (
-	myCredentials = "ted:secret@tcp(192.168.99.100:3306)/ted"
+	// myCredentials = "ted:secret@tcp(192.168.99.100:3306)/ted"
+	myCredentials = "ted:secret@tcp(0.0.0.0:3306)/ted"
 )
 
+type logWriter struct {
+}
+
+func (writer logWriter) Write(bytes []byte) (int, error) {
+	return fmt.Print(time.Now().UTC().Format("2006-01-02T15:04:05.0000Z") + " - " + string(bytes))
+}
+
 func main() {
+	log.SetFlags(0)
+	log.SetOutput(new(logWriter))
+	log.Printf("Starting TED1K pump\n") // version,buildDate
 
 	tableNames := []string{"watt", "watt2", "watt3"}
 	db := setup(tableNames)
@@ -33,24 +44,17 @@ func main() {
 		// Epoch:     mysql.ThisYear,
 		// Epoch: mysql.Recent,
 		// Epoch: mysql.SixMonths,
-		Epoch: time.Date(2015, time.November, 1, 0, 0, 0, 0, time.UTC),
+		// Epoch: time.Date(2015, time.November, 1, 0, 0, 0, 0, time.UTC),
 		// Epoch: mysql.LastYear,
-		// Epoch:   mysql.AllTime,
+		Epoch:   mysql.AllTime,
 		MaxRows: mysql.AboutADay,
 	}
-	log.Printf("mysql.Reader: %v", myReader)
 
 	// Track the progress
-	monitor := &progress.Monitor{
-		Batch: progress.BatchByDay,
-	}
-	log.Printf("progress.Monitor: %v", monitor)
+	monitor := &progress.Monitor{Batch: progress.BatchByDay}
 
 	// consume the channel with this sink
-	myWriter := &mysql.Writer{
-		TableName: "watt2",
-		DB:        db,
-	}
+	myWriter := &mysql.Writer{TableName: "watt2", DB: db}
 	log.Printf("mysql.Writer: %v", myWriter)
 
 	fluxWriter := flux.DefaultWriter()
@@ -65,7 +69,8 @@ func main() {
 	log.Printf("jsonl.Writer: %v", jsonlWriter)
 
 	// 320k entries/s
-	ignore.Write(monitor.Monitor(myReader.Read()))
+	// ignore.Write(monitor.Monitor(myReader.Read()))
+	ignore.Write(monitor.Gaps(myReader.Read()))
 
 	// 3.5k entries/s
 	// myWriter.Write(monitor.Monitor(myReader.Read()))
@@ -96,7 +101,7 @@ func setup(tableNames []string) *sqlx.DB {
 }
 
 func createCopyTable(db *sqlx.DB, tableName string) {
-	ddlFormat := "CREATE TABLE IF NOT EXISTS %s ( stamp datetime NOT NULL DEFAULT '1970-01-01 00:00:00', watt int(11) NOT NULL DEFAULT '0',  PRIMARY KEY (`stamp`) )"
+	ddlFormat := "CREATE TABLE IF NOT EXISTS %s ( stamp datetime NOT NULL DEFAULT '1970-01-01 00:00:00', watt int(11) NOT NULL DEFAULT '0',  PRIMARY KEY (`stamp`) )  ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;"
 	ddl := fmt.Sprintf(ddlFormat, tableName)
 	_, err := db.Exec(ddl)
 	Checkerr(err)
