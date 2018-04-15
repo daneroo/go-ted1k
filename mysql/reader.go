@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	// maximum number of rows read in one iteration
+	// AboutADay is used to size the maximum number of rows read in one iteration
 	AboutADay = 3600 * 24
 )
 

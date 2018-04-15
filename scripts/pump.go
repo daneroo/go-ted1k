@@ -8,24 +8,78 @@ import (
 	"github.com/daneroo/go-ted1k/flux"
 	"github.com/daneroo/go-ted1k/ignore"
 	"github.com/daneroo/go-ted1k/jsonl"
+	"github.com/daneroo/go-ted1k/merge"
 	"github.com/daneroo/go-ted1k/mysql"
 	"github.com/daneroo/go-ted1k/progress"
-	. "github.com/daneroo/go-ted1k/util"
+	"github.com/daneroo/go-ted1k/types"
+	"github.com/daneroo/timewalker"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
 )
 
 const (
-	myCredentials = "ted:secret@tcp(192.168.99.100:3306)/ted"
+	// myCredentials = "ted:secret@tcp(192.168.99.100:3306)/ted"
+	myCredentials = "ted:secret@tcp(0.0.0.0:3306)/ted"
 )
 
+type logWriter struct {
+}
+
+func (writer logWriter) Write(bytes []byte) (int, error) {
+	return fmt.Print(time.Now().UTC().Format("2006-01-02T15:04:05.0000Z") + " - " + string(bytes))
+}
+
 func main() {
+	log.SetFlags(0)
+	log.SetOutput(new(logWriter))
+	log.Printf("Starting TED1K pump\n") // version,buildDate
 
 	tableNames := []string{"watt", "watt2", "watt3"}
-	db := setup(tableNames)
+	db := mysql.Setup(tableNames, myCredentials)
 	defer db.Close()
 
-	// Setup the pipeline
+	// gaps(myReader.Read())
+
+	// ** to Ignore
+	// 342k entries/s (~200M entries , SSD)
+	// pipeToIgnore(fromMysql(db))
+	// 300k entries/s (~200M entries , SSD)
+	// pipeToIgnore(fromJsonl())
+
+	// 190k entries/s (~200M entries , SSD)
+	pipeToJsonl(fromMysql(db))
+
+	// 137k entries/s (~200M entries , SSD, empty destination)
+	// 24k entries/s (~200M entries , SSD, full destination)
+	// pipeToMysql(fromMysql(db), "watt2", db)
+
+	// 130k entries/s (~200M entries , SSD)
+	// pipeToMysql(fromJsonl(), "watt2", db)
+
+	// 116k entries/s (~200M entries , SSD, empty or full)
+	// pipeToFlux(fromMysql(db))
+
+	// 197k entries/s (~200M entries , SSD)
+	// verify(db)
+}
+
+func verify(db *sqlx.DB) {
+	monitor := &progress.Monitor{Batch: progress.BatchByDay}
+
+	vv := merge.Verify(fromJsonl(), monitor.Monitor(fromMysql(db)))
+	log.Printf("Verified:\n")
+	for _, v := range vv {
+		log.Println(v)
+	}
+
+}
+
+func fromJsonl() <-chan types.Entry {
+	jsonlReader := jsonl.DefaultReader()
+	jsonlReader.Grain = timewalker.Month
+	return jsonlReader.Read()
+}
+func fromMysql(db *sqlx.DB) <-chan types.Entry {
 	// create a read-only channel for source Entry(s)
 	myReader := &mysql.Reader{
 		TableName: "watt",
@@ -33,78 +87,45 @@ func main() {
 		// Epoch:     mysql.ThisYear,
 		// Epoch: mysql.Recent,
 		// Epoch: mysql.SixMonths,
-		Epoch: time.Date(2015, time.November, 1, 0, 0, 0, 0, time.UTC),
+		// Epoch: time.Date(2015, time.November, 1, 0, 0, 0, 0, time.UTC),
 		// Epoch: mysql.LastYear,
-		// Epoch:   mysql.AllTime,
+		Epoch:   mysql.AllTime,
 		MaxRows: mysql.AboutADay,
 	}
-	log.Printf("mysql.Reader: %v", myReader)
+	return myReader.Read()
+}
 
-	// Track the progress
-	monitor := &progress.Monitor{
-		Batch: progress.BatchByDay,
-	}
-	log.Printf("progress.Monitor: %v", monitor)
+func gaps(in <-chan types.Entry) {
+	monitor := &progress.Monitor{Batch: progress.BatchByDay}
+	ignore.Write(monitor.Gaps(in))
+}
 
-	// consume the channel with this sink
-	myWriter := &mysql.Writer{
-		TableName: "watt2",
-		DB:        db,
-	}
-	log.Printf("mysql.Writer: %v", myWriter)
+func pipeToIgnore(in <-chan types.Entry) {
+	monitor := &progress.Monitor{Batch: progress.BatchByDay}
+	ignore.Write(monitor.Monitor(in))
+}
 
-	fluxWriter := flux.DefaultWriter()
-	log.Printf("flux.Writer: %v", fluxWriter)
-
-	jsonlReader := jsonl.DefaultReader()
-	// jsonlReader.Grain = timewalker.Month
-	log.Printf("jsonl.Reader: %v", jsonlReader)
-
+func pipeToJsonl(in <-chan types.Entry) {
 	jsonlWriter := jsonl.DefaultWriter()
-	// jsonlWriter.Grain = timewalker.Month
-	log.Printf("jsonl.Writer: %v", jsonlWriter)
+	jsonlWriter.Grain = timewalker.Month
 
-	// 320k entries/s
-	ignore.Write(monitor.Monitor(myReader.Read()))
-
-	// 3.5k entries/s
-	// myWriter.Write(monitor.Monitor(myReader.Read()))
-
-	// x.xk entries/s
-	// fluxWriter.Write(monitor.Monitor(myReader.Read()))
-
-	// 120k entries/s
-	// jsonlWriter.Write(monitor.Monitor(myReader.Read()))
-
-	// 230k entries/s
-	// ignore.Write(monitor.Monitor(jsonlReader.Read()))
-
+	monitor := &progress.Monitor{Batch: progress.BatchByDay}
+	jsonlWriter.Write(monitor.Monitor(in))
 }
 
-func setup(tableNames []string) *sqlx.DB {
-	// Connect is Open and verify with a Ping
-	db, err := sqlx.Connect("mysql", myCredentials)
-	Checkerr(err)
-	log.Println("Connected to MySQL")
+func pipeToMysql(in <-chan types.Entry, tableName string, db *sqlx.DB) {
+	// consume the channel with this sink
+	myWriter := &mysql.Writer{TableName: "watt2", DB: db}
+	// log.Printf("mysql.Writer: %v", myWriter)
 
-	for _, tableName := range tableNames {
-		createCopyTable(db, tableName)
-	}
-	totalCount(db)
-
-	return db
+	monitor := &progress.Monitor{Batch: progress.BatchByDay}
+	myWriter.Write(monitor.Monitor(in))
+	myWriter.Close()
 }
 
-func createCopyTable(db *sqlx.DB, tableName string) {
-	ddlFormat := "CREATE TABLE IF NOT EXISTS %s ( stamp datetime NOT NULL DEFAULT '1970-01-01 00:00:00', watt int(11) NOT NULL DEFAULT '0',  PRIMARY KEY (`stamp`) )"
-	ddl := fmt.Sprintf(ddlFormat, tableName)
-	_, err := db.Exec(ddl)
-	Checkerr(err)
-}
-
-func totalCount(db *sqlx.DB) {
-	var totalCount int
-	err := db.Get(&totalCount, "SELECT COUNT(*) FROM watt")
-	Checkerr(err)
-	log.Printf("Found %d entries in watt\n", totalCount)
+func pipeToFlux(in <-chan types.Entry) {
+	fluxWriter := flux.DefaultWriter()
+	// log.Printf("flux.Writer: %v", fluxWriter)
+	monitor := &progress.Monitor{Batch: progress.BatchByDay}
+	fluxWriter.Write(monitor.Monitor(in))
 }
