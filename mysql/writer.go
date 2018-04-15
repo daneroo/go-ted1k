@@ -6,8 +6,8 @@ import (
 	"log"
 	"time"
 
-	. "github.com/daneroo/go-ted1k/types"
-	. "github.com/daneroo/go-ted1k/util"
+	"github.com/daneroo/go-ted1k/timer"
+	"github.com/daneroo/go-ted1k/types"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
 )
@@ -33,10 +33,10 @@ func (w *Writer) Close() {
 	w.prepStmts = make(map[string]*sqlx.Stmt)
 }
 
-func (w *Writer) Write(src <-chan Entry) {
+func (w *Writer) Write(src <-chan types.Entry) {
 	start := time.Now()
 	count := 0
-	entries := make([]Entry, 0, writeBatchSize)
+	entries := make([]types.Entry, 0, writeBatchSize)
 
 	for entry := range src {
 
@@ -45,17 +45,17 @@ func (w *Writer) Write(src <-chan Entry) {
 		count++
 		if (len(entries) % writeBatchSize) == 0 {
 			w.flush(entries)
-			entries = make([]Entry, 0, writeBatchSize)
+			entries = make([]types.Entry, 0, writeBatchSize)
 		}
 
 	}
 	// last flush
 	w.flush(entries)
-	TimeTrack(start, "mysql.Write", count)
+	timer.Track(start, "mysql.Write", count)
 }
 
 // perform the actual batch insert
-func (w *Writer) flush(entries []Entry) {
+func (w *Writer) flush(entries []types.Entry) {
 	if len(entries) == 0 {
 		return
 	}

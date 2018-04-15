@@ -8,9 +8,9 @@ import (
 	"github.com/daneroo/go-ted1k/types"
 )
 
-func TestMatchTypeString(t *testing.T) {
+func TestMergeTypeString(t *testing.T) {
 	var data = []struct {
-		m MatchType
+		m MergeType
 		s string // expected
 	}{
 		{

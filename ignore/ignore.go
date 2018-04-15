@@ -3,15 +3,16 @@ package ignore
 import (
 	"time"
 
-	. "github.com/daneroo/go-ted1k/types"
-	. "github.com/daneroo/go-ted1k/util"
+	"github.com/daneroo/go-ted1k/timer"
+	"github.com/daneroo/go-ted1k/types"
 )
 
-func Write(src <-chan Entry) {
+// Write creates an Entry channel
+func Write(src <-chan types.Entry) {
 	start := time.Now()
 	count := 0
-	for _ = range src {
+	for range src {
 		count++
 	}
-	TimeTrack(start, "ignore.Write", count)
+	timer.Track(start, "ignore.Write", count)
 }

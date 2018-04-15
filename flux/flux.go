@@ -5,15 +5,14 @@ import (
 	"log"
 	"time"
 
-	. "github.com/daneroo/go-ted1k/types"
-	. "github.com/daneroo/go-ted1k/util"
-	// client "github.com/influxdata/influxdb/client/v2"
+	"fmt"
+
+	"github.com/daneroo/go-ted1k/timer"
+	"github.com/daneroo/go-ted1k/types"
+	"github.com/daneroo/go-ted1k/util"
+
 	client "github.com/influxdata/influxdb/client/v2"
 )
-
-import "fmt"
-
-// "os"
 
 type Writer struct {
 	Host           string
@@ -35,20 +34,20 @@ func DefaultWriter() *Writer {
 	return w
 }
 
-// Consume the Entry (receive only) channel
+// Consume the types.Entry (receive only) channel
 // preforming batched writes (of size writeBatchSize)
 // Also performs progress logging (and timing)
 // and closes the connection
-func (w *Writer) Write(src <-chan Entry) {
+func (w *Writer) Write(src <-chan types.Entry) {
 	start := time.Now()
 	count := 0
 
 	// should I close if not nil?
 	err := w.connect()
-	Checkerr(err)
+	util.Checkerr(err)
 	// defer close? when we move to v2 client
 
-	var entries = make([]Entry, 0, w.WriteBatchSize)
+	var entries = make([]types.Entry, 0, w.WriteBatchSize)
 	for entry := range src {
 		entries = append(entries, entry)
 		count++
@@ -58,24 +57,24 @@ func (w *Writer) Write(src <-chan Entry) {
 	}
 	_ = w.flush(entries)
 	w.close()
-	TimeTrack(start, "flux.Write", count)
+	timer.Track(start, "flux.Write", count)
 }
 
 // Write out the entries to con, and reallocate a new empty slice
-func (w *Writer) flush(entries []Entry) []Entry {
+func (w *Writer) flush(entries []types.Entry) []types.Entry {
 	w.writeEntries(entries)
-	return make([]Entry, 0, w.WriteBatchSize)
+	return make([]types.Entry, 0, w.WriteBatchSize)
 }
 
 // Perform the batch write
-func (w *Writer) writeEntries(entries []Entry) {
+func (w *Writer) writeEntries(entries []types.Entry) {
 	bps, err := client.NewBatchPoints(client.BatchPointsConfig{
 		Database:        w.DB,
 		RetentionPolicy: "default",
 		Precision:       "s",
 		// WriteConsistency: string,
 	})
-	Checkerr(err)
+	util.Checkerr(err)
 
 	for _, entry := range entries {
 		name := "watt" // Measurement
@@ -84,7 +83,7 @@ func (w *Writer) writeEntries(entries []Entry) {
 			"value": entry.Watt,
 		}
 		pt, err := client.NewPoint(name, tags, fields, entry.Stamp)
-		Checkerr(err)
+		util.Checkerr(err)
 		bps.AddPoint(pt)
 
 		// fmt.Printf("point: %v\n", pt)
@@ -92,7 +91,7 @@ func (w *Writer) writeEntries(entries []Entry) {
 
 	// TODO(daneroo): retry, if error is timeout?
 	err = w.con.Write(bps)
-	Checkerr(err)
+	util.Checkerr(err)
 }
 
 // Create the client connection
@@ -106,10 +105,10 @@ func (w *Writer) connect() error {
 		// Username: os.Getenv("INFLUX_USER"),
 		// Password: os.Getenv("INFLUX_PWD"),
 	})
-	Checkerr(err)
+	util.Checkerr(err)
 
 	dur, ver, err := w.con.Ping(time.Minute)
-	Checkerr(err)
+	util.Checkerr(err)
 	log.Printf("Connected to %s, InfluxDB:%s, ping:%v", url, ver, dur)
 
 	return nil

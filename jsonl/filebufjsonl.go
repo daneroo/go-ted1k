@@ -9,8 +9,7 @@ import (
 	"os"
 )
 
-// File Buffered JSon Encoder
-
+// FBJE File Buffered JSon Encoder
 type FBJE struct {
 	isOpen bool
 	file   io.WriteCloser
@@ -18,17 +17,18 @@ type FBJE struct {
 	enc    *json.Encoder
 }
 
+// Open is ...
 func (fbje *FBJE) Open(fileName string) error {
 	if fbje.isOpen {
 		fbje.Close()
 	}
 
-	if file, err := os.Create(fileName); err != nil {
+	file, err := os.Create(fileName)
+	if err != nil {
 		return err
-	} else {
-		fbje.file = file
 	}
 
+	fbje.file = file
 	fbje.bufw = bufio.NewWriter(fbje.file) // default size 4k
 	fbje.enc = json.NewEncoder(fbje.bufw)
 	fbje.isOpen = true
@@ -36,6 +36,7 @@ func (fbje *FBJE) Open(fileName string) error {
 	return nil
 }
 
+// Encode is ...
 func (fbje *FBJE) Encode(v interface{}) error {
 	if !fbje.isOpen {
 		return fmt.Errorf("FBJE: Encoder is not open")
@@ -43,6 +44,7 @@ func (fbje *FBJE) Encode(v interface{}) error {
 	return fbje.enc.Encode(v)
 }
 
+// Close is ...
 func (fbje *FBJE) Close() error {
 	if fbje.isOpen {
 		fbje.bufw.Flush()

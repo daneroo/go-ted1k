@@ -16,14 +16,16 @@ const (
 	BasePath = "./data/jsonl"
 )
 
-// go to Hour when timewalker is augmented
+// DefaultWriter is ...
+// TODO(daneroo): go to Hour when timewalker is augmented
 func DefaultWriter() *Writer {
 	return &Writer{
 		Grain: timewalker.Day,
 	}
 }
 
-// go to Hour when timewalker is augmented
+// DefaultReader is ...
+// TODO(daneroo): go to Hour when timewalker is augmented
 func DefaultReader() *Reader {
 	return &Reader{
 		Grain: timewalker.Day,

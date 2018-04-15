@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"time"
 
-	. "github.com/daneroo/go-ted1k/types"
-	. "github.com/daneroo/go-ted1k/util"
+	"github.com/daneroo/go-ted1k/timer"
+	"github.com/daneroo/go-ted1k/types"
+	"github.com/daneroo/go-ted1k/util"
 	"github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
 )
@@ -31,9 +32,9 @@ type Reader struct {
 	MaxRows   int
 }
 
-// Read() creates and returns a channel of Entry
-func (r *Reader) Read() <-chan Entry {
-	src := make(chan Entry)
+// Read() creates and returns a channel of types.Entry
+func (r *Reader) Read() <-chan types.Entry {
+	src := make(chan types.Entry)
 
 	go func(r *Reader) {
 		start := time.Now()
@@ -53,7 +54,7 @@ func (r *Reader) Read() <-chan Entry {
 		}
 		// close the channel
 		close(src)
-		TimeTrack(start, "mysql.Read", totalCount)
+		timer.Track(start, "mysql.Read", totalCount)
 	}(r)
 
 	return src
@@ -63,12 +64,12 @@ func (r *Reader) Read() <-chan Entry {
 // Returned rows starts at stamp > startTime (does not include the startTime bound).
 // A maximum of maxRows rows are read.
 // Return the maximum time stamp read, as well as the number of rows.
-func (r *Reader) readRows(startTime time.Time, src chan<- Entry) (time.Time, int) {
+func (r *Reader) readRows(startTime time.Time, src chan<- types.Entry) (time.Time, int) {
 	sql := fmt.Sprintf("SELECT stamp,watt FROM %s where stamp>? ORDER BY stamp ASC LIMIT ?", r.TableName)
 
 	rows, err := r.DB.Query(sql, startTime, r.MaxRows)
 	defer rows.Close()
-	Checkerr(err)
+	util.Checkerr(err)
 
 	count := 0
 	var lastStamp time.Time
@@ -77,13 +78,13 @@ func (r *Reader) readRows(startTime time.Time, src chan<- Entry) (time.Time, int
 		var watt int
 
 		err = rows.Scan(&stamp, &watt)
-		Checkerr(err)
+		util.Checkerr(err)
 
 		// count even null stamp rows (which should never happen)
 		count++
 		if stamp.Valid {
 			lastStamp = stamp.Time
-			src <- Entry{Stamp: stamp.Time, Watt: watt}
+			src <- types.Entry{Stamp: stamp.Time, Watt: watt}
 		}
 	}
 	return lastStamp, count

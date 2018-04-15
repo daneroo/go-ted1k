@@ -47,7 +47,7 @@ func main() {
 	// pipeToIgnore(fromJsonl())
 
 	// 190k entries/s (~200M entries , SSD)
-	pipeToJsonl(fromMysql(db))
+	// pipeToJsonl(fromMysql(db))
 
 	// 137k entries/s (~200M entries , SSD, empty destination)
 	// 24k entries/s (~200M entries , SSD, full destination)
@@ -60,7 +60,7 @@ func main() {
 	// pipeToFlux(fromMysql(db))
 
 	// 197k entries/s (~200M entries , SSD)
-	// verify(db)
+	verify(db)
 }
 
 func verify(db *sqlx.DB) {
