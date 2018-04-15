@@ -7,6 +7,7 @@ import (
 	"time"
 )
 
+// TimeTrack calculates elapsed time as well as rate
 func TimeTrack(start time.Time, name string, count int) {
 	elapsed := time.Since(start)
 

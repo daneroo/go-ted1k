@@ -1,7 +1,9 @@
 package mysql
 
 import (
+	"bytes"
 	"fmt"
+	"log"
 	"time"
 
 	. "github.com/daneroo/go-ted1k/types"
@@ -11,65 +13,91 @@ import (
 )
 
 const (
-	insertSqlFormat = "INSERT IGNORE INTO %s (stamp, watt) VALUES (?,?)"
-	writeBatchSize  = 12 * 3600
+	insertSQLFormat = "INSERT IGNORE INTO %s (stamp, watt) VALUES (?,?)"
+	writeBatchSize  = 10000 // could move to Writer struct
 )
 
+// Writer is a ...
 type Writer struct {
-	DB         *sqlx.DB
-	TableName  string
-	tx         *sqlx.Tx
-	insertStmt *sqlx.Stmt
+	DB        *sqlx.DB
+	TableName string
+	prepStmts map[string]*sqlx.Stmt // TODO(daneroo): these need to be closed..
+}
+
+// Close frees prepared Statements
+func (w *Writer) Close() {
+	for _, stmt := range w.prepStmts {
+		log.Printf("Closing prepared statement")
+		_ = stmt.Close()
+	}
+	w.prepStmts = make(map[string]*sqlx.Stmt)
 }
 
 func (w *Writer) Write(src <-chan Entry) {
 	start := time.Now()
-	w.commitAndBeginTx(true)
-
 	count := 0
+	entries := make([]Entry, 0, writeBatchSize)
+
 	for entry := range src {
 
-		w.writeOneRow(entry.Stamp, entry.Watt)
-		// log.Printf("Write %v, %d  (%d)\n", entry.Stamp, entry.Watt, count)
+		entries = append(entries, entry)
 
 		count++
-		if (count % writeBatchSize) == 0 {
-			// log.Printf("Write::checkpoint at %d records %v", count, entry.Stamp)
-			w.commitAndBeginTx(true)
+		if (len(entries) % writeBatchSize) == 0 {
+			w.flush(entries)
+			entries = make([]Entry, 0, writeBatchSize)
 		}
 
 	}
-
-	// commit but don't start another transaction
-	w.commitAndBeginTx(false)
+	// last flush
+	w.flush(entries)
 	TimeTrack(start, "mysql.Write", count)
 }
 
-// close stmt, commit, then start a tx, and prepare stmt
-func (w *Writer) commitAndBeginTx(beginAgain bool) {
-	if w.insertStmt != nil {
-		w.insertStmt.Close()
-		w.insertStmt = nil
-		// log.Println("Closed statement")
+// perform the actual batch insert
+func (w *Writer) flush(entries []Entry) {
+	if len(entries) == 0 {
+		return
 	}
-	if w.tx != nil {
-		w.tx.Commit()
-		w.tx = nil
-		// log.Println("Commited transaction")
+	// log.Printf("flush: would have flushed %d entries", len(entries))
+	sql := w.makeSQL(len(entries))
+
+	vals := []interface{}{}
+	for _, entry := range entries {
+		vals = append(vals, entry.Stamp, entry.Watt)
 	}
-	if beginAgain {
-		var err error
-		w.tx, err = w.DB.Beginx()
-		Checkerr(err)
-		insertSql := fmt.Sprintf(insertSqlFormat, w.TableName)
-		w.insertStmt, err = w.tx.Preparex(insertSql)
-		Checkerr(err)
-		// log.Println("Prepared insert statement (in a transaction)")
-	}
+	stmt := w.makeStmt(sql)
+	stmt.MustExec(vals...)
+	// log.Printf("res: %v", res)
 }
 
-func (w *Writer) writeOneRow(stamp time.Time, watt int) {
-	// log.Printf("Write %v, %d\n", stamp, watt)
-	_, err := w.insertStmt.Exec(stamp, watt)
-	Checkerr(err)
+func (w *Writer) makeStmt(sql string) *sqlx.Stmt {
+	if w.prepStmts == nil {
+		w.prepStmts = make(map[string]*sqlx.Stmt)
+	}
+
+	// Prepare query, if necessary
+	if _, ok := w.prepStmts[sql]; !ok {
+		if stmt, err := w.DB.Preparex(sql); err != nil {
+			log.Println(err)
+			panic(err)
+		} else {
+			w.prepStmts[sql] = stmt
+		}
+	}
+	return w.prepStmts[sql]
+}
+
+// make multiple value insert sql statement
+func (w *Writer) makeSQL(length int) string {
+	if length == 0 {
+		return ""
+	}
+	var sql bytes.Buffer
+	sql.WriteString(fmt.Sprintf(insertSQLFormat, w.TableName))
+	for i := 0; i < length-1; i++ {
+		sql.WriteString(",(?,?)")
+	}
+
+	return sql.String()
 }

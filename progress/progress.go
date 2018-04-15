@@ -36,7 +36,6 @@ func (p *Monitor) Monitor(src <-chan Entry) <-chan Entry {
 
 				day := entry.Stamp.Format("2006-01-02")
 				TimeTrack(start, fmt.Sprintf("progress.Monitor.global (%s)", day), count)
-				// TimeTrack(start, "progress.Monitor.global", count)
 			}
 		}
 		// close the channel

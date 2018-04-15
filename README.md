@@ -4,6 +4,12 @@
 
 [See Evernote](https://www.evernote.com/shard/s60/nl/1773032759/ae1b9921-7e85-4b75-a21b-86be7d524295/)
 
+- merge.Verify(a,b)
+- find best writeBatchSize in mysql writer 1k...32k : currently 10k
+- mv flux,ignore,jsonl,mysql to store/
+- try pg,sqlite (general sql module)
+
+
 ## Vendoring - with vgo
 Build and test:
 ```
@@ -37,8 +43,11 @@ See this general vendoring entry: [Go/Wiki for reference](https://github.com/gol
 Prior to `go1.6`, we also had to set `GO15VENDOREXPERIMENT=1`.
 
 ## InfluxDB
-
-	select mean(value)*24/1000 from watt where time > '2008-01-01' and time < '2016-01-01' group by time(7d)
+```
+docker exec -it goted1k_tedflux_1 bash
+influx -database ted -execute 'select count(value) from watt'
+select mean(value)*24/1000 from watt where time > '2008-01-01' and time < '2016-01-01' group by time(7d)
+```
 
 ### Downsampled time series
 
@@ -86,6 +95,18 @@ This is what we di to spead things up:
 
 ## Historical aggregation
 _We lost data from ( 2016-02-14 21:24:21 , 2016-03-12 06:35:35 ]_
+
+### check monthly sums after snapshots...
+2015-09-28:
+   .jsonl     avg 100M, total 9026M
+	 .jsonl.gz  avg   7M, total  629M
+	 .jsonl.bz2 avg   5M, total  384M
+```
+time md5sum $(find data/jsonl/month -type f -name \*.jsonl) | tee sums.txt
+md5sum -c sums.txt
+md5sum $(find data/jsonl/month -type f -name \*.jsonl)|cut -d \  -f 1|sort|md5sum
+```
+
 ### ted.20150928.1006.sql.bz2 (watt, and native...?)
 ```
 mysql> select min(stamp),max(stamp),count(*) from watt;

@@ -38,7 +38,7 @@ func (fbje *FBJE) Open(fileName string) error {
 
 func (fbje *FBJE) Encode(v interface{}) error {
 	if !fbje.isOpen {
-		fmt.Errorf("FBJE: Encoder is not open")
+		return fmt.Errorf("FBJE: Encoder is not open")
 	}
 	return fbje.enc.Encode(v)
 }
