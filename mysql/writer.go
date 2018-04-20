@@ -89,6 +89,7 @@ func (w *Writer) makeStmt(sql string) *sqlx.Stmt {
 }
 
 // make multiple value insert sql statement
+// TODO(daneroo): use strings.Builder instead of bytes.Buffer
 func (w *Writer) makeSQL(length int) string {
 	if length == 0 {
 		return ""
