@@ -67,14 +67,10 @@ func (w *Writer) flush(entries []types.Entry) {
 	for _, entry := range entries {
 		vals = append(vals, entry.Stamp, entry.Watt)
 
-		if w.tx != nil {
-		w.tx.Commit()
-		w.tx = nil
-		// log.Println("Committed transaction")
+		stmt := w.makeStmt(sql)
+		stmt.MustExec(vals...)
+		// log.Printf("res: %v", res)
 	}
-	stmt := w.makeStmt(sql)
-	stmt.MustExec(vals...)
-	// log.Printf("res: %v", res)
 }
 
 func (w *Writer) makeStmt(sql string) *sqlx.Stmt {

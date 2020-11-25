@@ -5,6 +5,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/daneroo/go-ted1k/flux"
 	"github.com/daneroo/go-ted1k/ignore"
 	"github.com/daneroo/go-ted1k/jsonl"
 	"github.com/daneroo/go-ted1k/merge"
@@ -19,14 +20,15 @@ import (
 const (
 	// myCredentials = "ted:secret@tcp(192.168.99.100:3306)/ted"
 	// myCredentials = "ted:secret@tcp(127.0.0.1:3306)/ted"
-	myCredentials = "ted:secret@tcp(0.0.0.0:3306)/ted"
+	myCredentials    = "ted:secret@tcp(0.0.0.0:3306)/ted"
+	fmtRFC3339Millis = "2006-01-02T15:04:05.000Z07:00"
 )
 
 type logWriter struct {
 }
 
 func (writer logWriter) Write(bytes []byte) (int, error) {
-	return fmt.Print(time.Now().UTC().Format(time.RFC3339Nano) + " - " + string(bytes))
+	return fmt.Print(time.Now().UTC().Format(fmtRFC3339Millis) + " - " + string(bytes))
 }
 
 func main() {
@@ -91,7 +93,7 @@ func fromMysql(db *sqlx.DB) <-chan types.Entry {
 		//  About a 10M rows for ted.watt.2016-02-14-1555.sql.bz2
 		Epoch: time.Date(2015, time.October, 1, 0, 0, 0, 0, time.UTC),
 		// Epoch: mysql.LastYear,
-		Epoch:   mysql.AllTime,
+		// Epoch:   mysql.AllTime,
 		MaxRows: mysql.AboutADay,
 	}
 	return myReader.Read()

@@ -11,45 +11,9 @@
 - mv flux,ignore,jsonl,mysql to store/
 - try pg,sqlite (general sql module)
 
-## Vendoring - with vgo
-
-Build and test:
-
-```
-vgo build ./scripts/pump.go
-vgo test -v  ./...
-```
-
-See [this post](https://research.swtch.com/vgo-tour) for summary usage
-
-```
-go get -u golang.org/x/vgo
-```
-
-### Vendoring with govend (deprecated)
-
-[Usage](https://github.com/govend/govend):
-
-    govend -v  # download all the dependencies in the vendor.yml file
-    govend -v -u # scan your project, update all dependencies, and update the vendor.yml revision versions
-
-[New/Update]
-
-    govend github.com/gorilla/mux  # add
-    govend -u github.com/gorilla/mux # update
-
-To install [`govend`](https://github.com/gophersaurus/govend) itself:
-
-    go get -u github.com/govend/govend
-
-and made sure our `GOPATH` was set and `$GOPATH/bin` is on our `$PATH`.
-
-See this general vendoring entry: [Go/Wiki for reference](https://github.com/golang/go/wiki/PackageManagementTools).
-Prior to `go1.6`, we also had to set `GO15VENDOREXPERIMENT=1`.
-
 ## InfluxDB
 
-```
+```bash
 docker exec -it goted1k_tedflux_1 bash
 influx -database ted -execute 'select count(value) from watt'
 select mean(value)*24/1000 from watt where time > '2008-01-01' and time < '2016-01-01' group by time(7d)
@@ -57,39 +21,42 @@ select mean(value)*24/1000 from watt where time > '2008-01-01' and time < '2016-
 
 ### Downsampled time series
 
-Truncate for D,M,Y: http://play.golang.org/p/PUNNHq9sh6
+Truncate for D,M,Y: <http://play.golang.org/p/PUNNHq9sh6>
 
 Continuous Queries are not appropriate for historical data loading.
 I should implement my own select .. into (in go), using tablenames as in mysql
 
-    select mean(value)*24/1000 into kwh_1d from watt where time > '2015-09-01' group by time(1d)
+```influxql
+select mean(value)*24/1000 into kwh_1d from watt where time > '2015-09-01' group by time(1d)
+```
 
 ## Docker
 
 We have abandoned data volumes for now.
 `docker-compose` command brings up MySQL, InfluxDB and Grafana instances, and the `restore-db.sh` script restores a MySQL snapshot/
 
-    docker-compose up -d
-    ./restore-db.sh
+```bash
+docker-compose up -d
+./restore-db.sh
+```
 
 ## Timing of MySQL reads
 
 For timing of MySQL selects with maxCount results
 
+```bash
 From goedel to cantor
-
-    3600: 989s
-    3600*24: 357s
-    3600*24*10: 324s
+  3600: 989s
+  3600*24: 357s
+  3600*24*10: 324s
 
 From Dirac to local docker:
-
-    3600*24: 605s  (Read-only)
+  3600*24: 605s  (Read-only)
 
 From Godel to local docker:
-
-    3600*24: 294s,290s  (Read-only) Now 412s,405s, with IgnoreAll
-    10000: --s  (Batch Writes)
+  3600*24: 294s,290s  (Read-only) Now 412s,405s, with IgnoreAll
+  10000: --s  (Batch Writes)
+```
 
 ## MySQL inserts are ridiculously slow
 
@@ -102,16 +69,16 @@ This is what we di to spead things up:
 
 ## Historical aggregation
 
-_We lost data from ( 2016-02-14 21:24:21 , 2016-03-12 06:35:35 ]_
+We lost data from `( 2016-02-14 21:24:21 , 2016-03-12 06:35:35 ]`
 
-### check monthly sums after snapshots...
+### Should check monthly sums after snapshots
 
 2015-09-28:
 .jsonl avg 100M, total 9026M
 .jsonl.gz avg 7M, total 629M
 .jsonl.bz2 avg 5M, total 384M
 
-```
+```bash
 time md5sum $(find data/jsonl/month -type f -name \*.jsonl) | tee sums.txt
 md5sum -c sums.txt
 md5sum $(find data/jsonl/month -type f -name \*.jsonl)|cut -d \  -f 1|sort|md5sum
@@ -119,7 +86,7 @@ md5sum $(find data/jsonl/month -type f -name \*.jsonl)|cut -d \  -f 1|sort|md5su
 
 ### ted.20150928.1006.sql.bz2 (watt, and native...?)
 
-```
+```bash
 mysql> select min(stamp),max(stamp),count(*) from watt;
 +---------------------+---------------------+-----------+
 | min(stamp)          | max(stamp)          | count(*)  |
@@ -133,13 +100,13 @@ mysql> select min(stamp),max(stamp),count(*) from watt;
 
 I also use:
 
-```
+```sql
 select min(stamp),max(stamp),count(*) from watt group by left(stamp,10);
 ```
 
-### ted.20150928.1006.sql.bz2 (watt, and native...?)
+### Gaps ted.20150928.1006.sql.bz2 (watt, and native...?)
 
-```
+```bash
 mysql> select min(stamp),max(stamp),count(*) from watt;
 +---------------------+---------------------+-----------+
 | min(stamp)          | max(stamp)          | count(*)  |
@@ -218,12 +185,11 @@ progress.Gaps: 2015-09-27T22:07:10Z 2015-09-28T02:56:46Z : 4h49m36s
 
 Progress.Gaps: 53 gaps totaling 2703h29m23s (9732563 entries)
 Progress.Gaps: 212737945 total entries in [2008-07-30T00:04:40Z, 2015-09-28T14:06:52Z] 62798h2m12s
-
 ```
 
-### ted.watt.2016-02-14-1555.sql.bz2
+### Gaps ted.watt.2016-02-14-1555.sql.bz2
 
-```
+```bash
 progress.Gaps: 2008-09-17T16:24:01Z 2008-09-18T03:28:17Z : 11h4m16s
 progress.Gaps: 2008-10-12T23:19:28Z 2008-10-15T01:56:16Z : 50h36m48s
 progress.Gaps: 2008-11-28T05:45:30Z 2008-11-28T17:10:53Z : 11h25m23s
@@ -301,7 +267,7 @@ Progress.Gaps: 2318726 total entries in [2016-01-01T00:00:00Z, 2016-02-14T21:24:
 
 ### ted.watt.20180326.0312Z.sql.bz2
 
-```
+```bash
 +---------------------+---------------------+----------+
 | min(stamp)          | max(stamp)          | count(*) |
 +---------------------+---------------------+----------+
