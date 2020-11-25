@@ -59,12 +59,18 @@ func (w *Writer) flush(entries []types.Entry) {
 	if len(entries) == 0 {
 		return
 	}
+
 	// log.Printf("flush: would have flushed %d entries", len(entries))
 	sql := w.makeSQL(len(entries))
 
 	vals := []interface{}{}
 	for _, entry := range entries {
 		vals = append(vals, entry.Stamp, entry.Watt)
+
+		if w.tx != nil {
+		w.tx.Commit()
+		w.tx = nil
+		// log.Println("Committed transaction")
 	}
 	stmt := w.makeStmt(sql)
 	stmt.MustExec(vals...)

@@ -2,7 +2,6 @@ package jsonl
 
 import (
 	"encoding/json"
-	"log"
 	"os"
 	"time"
 
@@ -31,7 +30,7 @@ func (r *Reader) Read() <-chan types.Entry {
 		totalCount := 0
 
 		for _, filename := range filenames {
-			log.Printf("-jsonl.Read: %s : %s", r.Grain, filename)
+			// log.Printf("-jsonl.Read: %s : %s", r.Grain, filename)
 			count := readOneFile(filename, src)
 			totalCount += count
 		}

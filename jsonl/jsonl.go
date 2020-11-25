@@ -48,7 +48,7 @@ func pathFor(grain timewalker.Duration, intvl timewalker.Interval) (string, erro
 }
 
 // fileIn return a slice for full paths to the file in the appropriate directory
-// TODO(danero): filter for any inappropriate file (or subdirs);
+// TODO(daneroo): filter for any inappropriate file (or subdirs);
 //   could use filePath.Walk, but that cannot perform filtering (only skip dir or rest of current)
 func filesIn(grain timewalker.Duration) ([]string, error) {
 	dir := dirFor(grain)

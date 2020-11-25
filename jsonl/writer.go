@@ -55,9 +55,9 @@ func (w *Writer) openFor(entry types.Entry) {
 
 	if !entry.Stamp.Before(w.intvl.End) {
 		if w.enc.isOpen {
-			log.Printf("Should close: %s", w.intvl)
+			// log.Printf("Should close: %s", w.intvl)
 
-			// new interva: for loop
+			// new interval: for loop
 			s := w.Grain.Floor(entry.Stamp)
 			e := w.Grain.AddTo(s)
 			w.intvl = timewalker.Interval{Start: s, End: e}
@@ -67,7 +67,7 @@ func (w *Writer) openFor(entry types.Entry) {
 	}
 
 	if !w.enc.isOpen {
-		log.Printf("Should open: %s", w.intvl)
+		// log.Printf("Should open: %s", w.intvl)
 
 		// this make directories as well...
 		file, err := pathFor(w.Grain, w.intvl)

@@ -5,7 +5,6 @@ import (
 	"log"
 	"time"
 
-	"github.com/daneroo/go-ted1k/flux"
 	"github.com/daneroo/go-ted1k/ignore"
 	"github.com/daneroo/go-ted1k/jsonl"
 	"github.com/daneroo/go-ted1k/merge"
@@ -19,6 +18,7 @@ import (
 
 const (
 	// myCredentials = "ted:secret@tcp(192.168.99.100:3306)/ted"
+	// myCredentials = "ted:secret@tcp(127.0.0.1:3306)/ted"
 	myCredentials = "ted:secret@tcp(0.0.0.0:3306)/ted"
 )
 
@@ -26,13 +26,13 @@ type logWriter struct {
 }
 
 func (writer logWriter) Write(bytes []byte) (int, error) {
-	return fmt.Print(time.Now().UTC().Format("2006-01-02T15:04:05.0000Z") + " - " + string(bytes))
+	return fmt.Print(time.Now().UTC().Format(time.RFC3339Nano) + " - " + string(bytes))
 }
 
 func main() {
 	log.SetFlags(0)
 	log.SetOutput(new(logWriter))
-	log.Printf("Starting TED1K pump\n") // version,buildDate
+	log.Printf("Starting TED1K pump\n") // TODO(daneroo): add version,buildDate
 
 	tableNames := []string{"watt", "watt2", "watt3"}
 	db := mysql.Setup(tableNames, myCredentials)
@@ -79,6 +79,7 @@ func fromJsonl() <-chan types.Entry {
 	jsonlReader.Grain = timewalker.Month
 	return jsonlReader.Read()
 }
+
 func fromMysql(db *sqlx.DB) <-chan types.Entry {
 	// create a read-only channel for source Entry(s)
 	myReader := &mysql.Reader{
@@ -87,7 +88,8 @@ func fromMysql(db *sqlx.DB) <-chan types.Entry {
 		// Epoch:     mysql.ThisYear,
 		// Epoch: mysql.Recent,
 		// Epoch: mysql.SixMonths,
-		// Epoch: time.Date(2015, time.November, 1, 0, 0, 0, 0, time.UTC),
+		//  About a 10M rows for ted.watt.2016-02-14-1555.sql.bz2
+		Epoch: time.Date(2015, time.October, 1, 0, 0, 0, 0, time.UTC),
 		// Epoch: mysql.LastYear,
 		Epoch:   mysql.AllTime,
 		MaxRows: mysql.AboutADay,

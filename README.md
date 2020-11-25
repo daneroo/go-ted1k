@@ -1,41 +1,46 @@
 # Ted1k with Go
 
-## Todo
+## TODO
 
-[See Evernote](https://www.evernote.com/shard/s60/nl/1773032759/ae1b9921-7e85-4b75-a21b-86be7d524295/)
+- Bring back Evernote TODO to here...
+- <https://github.com/jackc/pgx>
+- [See Evernote](https://www.evernote.com/shard/s60/nl/1773032759/ae1b9921-7e85-4b75-a21b-86be7d524295/)
 
 - merge.Verify(a,b)
 - find best writeBatchSize in mysql writer 1k...32k : currently 10k
 - mv flux,ignore,jsonl,mysql to store/
 - try pg,sqlite (general sql module)
 
-
 ## Vendoring - with vgo
+
 Build and test:
+
 ```
 vgo build ./scripts/pump.go
 vgo test -v  ./...
 ```
 
 See [this post](https://research.swtch.com/vgo-tour) for summary usage
+
 ```
 go get -u golang.org/x/vgo
 ```
 
 ### Vendoring with govend (deprecated)
+
 [Usage](https://github.com/govend/govend):
 
-	govend -v  # download all the dependencies in the vendor.yml file
-	govend -v -u # scan your project, update all dependencies, and update the vendor.yml revision versions
+    govend -v  # download all the dependencies in the vendor.yml file
+    govend -v -u # scan your project, update all dependencies, and update the vendor.yml revision versions
 
 [New/Update]
 
-	govend github.com/gorilla/mux  # add
-	govend -u github.com/gorilla/mux # update
+    govend github.com/gorilla/mux  # add
+    govend -u github.com/gorilla/mux # update
 
 To install [`govend`](https://github.com/gophersaurus/govend) itself:
 
-	go get -u github.com/govend/govend
+    go get -u github.com/govend/govend
 
 and made sure our `GOPATH` was set and `$GOPATH/bin` is on our `$PATH`.
 
@@ -43,6 +48,7 @@ See this general vendoring entry: [Go/Wiki for reference](https://github.com/gol
 Prior to `go1.6`, we also had to set `GO15VENDOREXPERIMENT=1`.
 
 ## InfluxDB
+
 ```
 docker exec -it goted1k_tedflux_1 bash
 influx -database ted -execute 'select count(value) from watt'
@@ -56,23 +62,25 @@ Truncate for D,M,Y: http://play.golang.org/p/PUNNHq9sh6
 Continuous Queries are not appropriate for historical data loading.
 I should implement my own select .. into (in go), using tablenames as in mysql
 
-	select mean(value)*24/1000 into kwh_1d from watt where time > '2015-09-01' group by time(1d)
+    select mean(value)*24/1000 into kwh_1d from watt where time > '2015-09-01' group by time(1d)
 
 ## Docker
+
 We have abandoned data volumes for now.
 `docker-compose` command brings up MySQL, InfluxDB and Grafana instances, and the `restore-db.sh` script restores a MySQL snapshot/
 
-	docker-compose up -d
-	./restore-db.sh
+    docker-compose up -d
+    ./restore-db.sh
 
 ## Timing of MySQL reads
+
 For timing of MySQL selects with maxCount results
 
 From goedel to cantor
 
-	3600: 989s
-	3600*24: 357s
-	3600*24*10: 324s
+    3600: 989s
+    3600*24: 357s
+    3600*24*10: 324s
 
 From Dirac to local docker:
 
@@ -81,11 +89,10 @@ From Dirac to local docker:
 From Godel to local docker:
 
     3600*24: 294s,290s  (Read-only) Now 412s,405s, with IgnoreAll
-	10000: --s  (Batch Writes)
-
-
+    10000: --s  (Batch Writes)
 
 ## MySQL inserts are ridiculously slow
+
 This is what we di to spead things up:
 (all time measured on dirac/docker)
 
@@ -94,13 +101,16 @@ This is what we di to spead things up:
 - Transactions: 2500-3000 ins/s (depending on size of batch...)
 
 ## Historical aggregation
+
 _We lost data from ( 2016-02-14 21:24:21 , 2016-03-12 06:35:35 ]_
 
 ### check monthly sums after snapshots...
+
 2015-09-28:
-   .jsonl     avg 100M, total 9026M
-	 .jsonl.gz  avg   7M, total  629M
-	 .jsonl.bz2 avg   5M, total  384M
+.jsonl avg 100M, total 9026M
+.jsonl.gz avg 7M, total 629M
+.jsonl.bz2 avg 5M, total 384M
+
 ```
 time md5sum $(find data/jsonl/month -type f -name \*.jsonl) | tee sums.txt
 md5sum -c sums.txt
@@ -108,6 +118,7 @@ md5sum $(find data/jsonl/month -type f -name \*.jsonl)|cut -d \  -f 1|sort|md5su
 ```
 
 ### ted.20150928.1006.sql.bz2 (watt, and native...?)
+
 ```
 mysql> select min(stamp),max(stamp),count(*) from watt;
 +---------------------+---------------------+-----------+
@@ -119,12 +130,15 @@ mysql> select min(stamp),max(stamp),count(*) from watt;
 ```
 
 ## Gaps (< 1h)
-I also use: 
+
+I also use:
+
 ```
 select min(stamp),max(stamp),count(*) from watt group by left(stamp,10);
 ```
 
 ### ted.20150928.1006.sql.bz2 (watt, and native...?)
+
 ```
 mysql> select min(stamp),max(stamp),count(*) from watt;
 +---------------------+---------------------+-----------+
@@ -208,6 +222,7 @@ Progress.Gaps: 212737945 total entries in [2008-07-30T00:04:40Z, 2015-09-28T14:0
 ```
 
 ### ted.watt.2016-02-14-1555.sql.bz2
+
 ```
 progress.Gaps: 2008-09-17T16:24:01Z 2008-09-18T03:28:17Z : 11h4m16s
 progress.Gaps: 2008-10-12T23:19:28Z 2008-10-15T01:56:16Z : 50h36m48s
@@ -274,6 +289,7 @@ Progress.Gaps: 223101124 total entries in [2008-07-30T00:04:40Z, 2016-02-11T12:2
 ```
 
 ### ted.watt-just2016.2016-02-14-1624.sql.bz2
+
 progress.Gaps: 2016-01-12T19:03:01Z 2016-01-12T21:09:04Z : 2h6m3s
 progress.Gaps: 2016-01-24T19:52:42Z 2016-01-29T21:09:03Z : 121h16m21s
 progress.Gaps: 2016-02-01T19:47:19Z 2016-02-03T03:03:04Z : 31h15m45s
@@ -284,6 +300,7 @@ Progress.Gaps: 5 gaps totaling 425h2m13s (1530133 entries)
 Progress.Gaps: 2318726 total entries in [2016-01-01T00:00:00Z, 2016-02-14T21:24:21Z] 1077h24m21s
 
 ### ted.watt.20180326.0312Z.sql.bz2
+
 ```
 +---------------------+---------------------+----------+
 | min(stamp)          | max(stamp)          | count(*) |

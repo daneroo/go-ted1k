@@ -1,6 +1,6 @@
 package util
 
-// Just some auxilliary functions
+// Just some auxillary functions
 
 import (
 	"log"
