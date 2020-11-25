@@ -19,14 +19,14 @@ teddb:
     - 3306:3306 # not exposed in prod ?
 
 # docker run -d --name timescaledb -p 5432:5432 -e POSTGRES_PASSWORD=password timescale/timescaledb:1.7.4-pg12
-timescaledb:
-  image: timescale/timescaledb:1.7.4-pg12
-  volumes:
-    - ./data/timescale:/var/lib/postgresql/data
-  env_file:
-    - ./PG.env
-  ports:
-    - 5432:5432 # not exposed in prod ?
+# timescaledb:
+#   image: timescale/timescaledb:1.7.4-pg12
+#   volumes:
+#     - ./data/timescale:/var/lib/postgresql/data
+#   env_file:
+#     - ./PG.env
+#   ports:
+#     - 5432:5432 # not exposed in prod ?
 
 # tedflux:
 #   # image: tutum/influxdb:0.10
