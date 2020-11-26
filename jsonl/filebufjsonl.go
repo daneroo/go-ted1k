@@ -1,6 +1,6 @@
 package jsonl
 
-// File Based (bufferd) JSON Encoder
+// File Based (buffered) JSON Encoder
 import (
 	"bufio"
 	"encoding/json"
@@ -39,7 +39,8 @@ func (fbje *FBJE) Open(fileName string) error {
 // Encode is ...
 func (fbje *FBJE) Encode(v interface{}) error {
 	if !fbje.isOpen {
-		return fmt.Errorf("FBJE: Encoder is not open")
+		err := fmt.Errorf("FBJE: Encoder is not open")
+		return err
 	}
 	return fbje.enc.Encode(v)
 }

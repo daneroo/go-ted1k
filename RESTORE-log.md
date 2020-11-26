@@ -44,14 +44,14 @@ print tedToLocal('0633651203640000000')# 2008-12-17 19:19:24 UTC
 ## ted.watt.2016-02-14-1555.sql.bz2
 
 - Restoring database from snapshot: /Users/daniel/Downloads/ted/ted.watt.2016-02-14-1555.sql.bz2
-  To docker container named: go-ted1k_teddb_1
+  To docker container named: go-ted1k_mysql_1
   Using database: ted, MYSQL_USER=ted
   Data Volume will persisted inside that docker container
 
 - Verifying docker environment
   Docker seems to be setup properly
 
-- Waiting for database server (go-ted1k_teddb_1) to accept connections (max 30 seconds)
+- Waiting for database server (go-ted1k_mysql_1) to accept connections (max 30 seconds)
   Connected
 - Restoring database...
 

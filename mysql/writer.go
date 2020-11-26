@@ -8,6 +8,8 @@ import (
 
 	"github.com/daneroo/go-ted1k/timer"
 	"github.com/daneroo/go-ted1k/types"
+
+	// register mysql driver
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
 )
@@ -66,11 +68,11 @@ func (w *Writer) flush(entries []types.Entry) {
 	vals := []interface{}{}
 	for _, entry := range entries {
 		vals = append(vals, entry.Stamp, entry.Watt)
-
-		stmt := w.makeStmt(sql)
-		stmt.MustExec(vals...)
-		// log.Printf("res: %v", res)
 	}
+
+	stmt := w.makeStmt(sql)
+	stmt.MustExec(vals...)
+	// log.Printf("res: %v", res)
 }
 
 func (w *Writer) makeStmt(sql string) *sqlx.Stmt {

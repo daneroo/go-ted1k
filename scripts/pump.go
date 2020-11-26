@@ -11,6 +11,7 @@ import (
 	"github.com/daneroo/go-ted1k/merge"
 	"github.com/daneroo/go-ted1k/mysql"
 	"github.com/daneroo/go-ted1k/progress"
+	"github.com/daneroo/go-ted1k/synth"
 	"github.com/daneroo/go-ted1k/types"
 	"github.com/daneroo/timewalker"
 	_ "github.com/go-sql-driver/mysql"
@@ -40,29 +41,33 @@ func main() {
 	db := mysql.Setup(tableNames, myCredentials)
 	defer db.Close()
 
-	// gaps(myReader.Read())
+	// gaps(fromMysql(db))
+	// dirac - rate ~ 801k/s count: 31M
+	// gaps(fromSynth())
 
 	// ** to Ignore
-	// 342k entries/s (~200M entries , SSD)
+	// 342k/s (~200M entries , SSD) - dirac rate ~ 149k/s count: 223M
 	// pipeToIgnore(fromMysql(db))
-	// 300k entries/s (~200M entries , SSD)
+	// 300k/s (~200M entries , SSD) - dirac rate ~ 193k/s count: 223M
 	// pipeToIgnore(fromJsonl())
+	// dirac - rate ~ 814k/s count: 31M
+	// pipeToIgnore(fromSynth())
 
-	// 190k entries/s (~200M entries , SSD)
-	pipeToJsonl(fromMysql(db))
+	// 190k/s (~200M entries , SSD) - dirac rate ~ 97k/s count: 223M
+	// pipeToJsonl(fromMysql(db))
 
-	// 137k entries/s (~200M entries , SSD, empty destination)
-	// 24k entries/s (~200M entries , SSD, full destination)
+	// 137k/s (~200M entries , SSD, empty destination) - dirac rate ~ 34k/s count: 223M
+	// 24k/s (~200M entries , SSD, full destination) - dirac rate ~ 13k/s count: 86M too slow stopped
 	// pipeToMysql(fromMysql(db), "watt2", db)
 
-	// 130k entries/s (~200M entries , SSD)
-	// pipeToMysql(fromJsonl(), "watt2", db)
+	// 130k/s (~200M entries , SSD) - dirac - rate ~ 34702.6/s count: 223101124
+	// pipeToMysql(fromJsonl(), "watt", db)
 
-	// 116k entries/s (~200M entries , SSD, empty or full)
+	// 116k/s (~200M entries , SSD, empty or full)
 	// pipeToFlux(fromMysql(db))
 
-	// 197k entries/s (~200M entries , SSD)
-	// verify(db)
+	// 197k/s (~200M entries , SSD) - dirac rate ~ 102/s count: 223M
+	verify(db)
 }
 
 func verify(db *sqlx.DB) {
@@ -74,6 +79,12 @@ func verify(db *sqlx.DB) {
 		log.Println(v)
 	}
 
+}
+
+func fromSynth() <-chan types.Entry {
+	// math.PI * 1e7 ~ 1 year!
+	synthReader := &synth.Reader{Epoch: synth.ThisYear, TotalRows: 3.1415926e7}
+	return synthReader.Read()
 }
 
 func fromJsonl() <-chan types.Entry {
@@ -91,9 +102,9 @@ func fromMysql(db *sqlx.DB) <-chan types.Entry {
 		// Epoch: mysql.Recent,
 		// Epoch: mysql.SixMonths,
 		//  About a 10M rows for ted.watt.2016-02-14-1555.sql.bz2
-		Epoch: time.Date(2015, time.October, 1, 0, 0, 0, 0, time.UTC),
+		// Epoch: time.Date(2015, time.October, 1, 0, 0, 0, 0, time.UTC),
 		// Epoch: mysql.LastYear,
-		// Epoch:   mysql.AllTime,
+		Epoch:   mysql.AllTime,
 		MaxRows: mysql.AboutADay,
 	}
 	return myReader.Read()
@@ -105,7 +116,7 @@ func gaps(in <-chan types.Entry) {
 }
 
 func pipeToIgnore(in <-chan types.Entry) {
-	monitor := &progress.Monitor{Batch: progress.BatchByDay}
+	monitor := &progress.Monitor{Batch: progress.BatchByDay * 10}
 	ignore.Write(monitor.Monitor(in))
 }
 
@@ -119,10 +130,10 @@ func pipeToJsonl(in <-chan types.Entry) {
 
 func pipeToMysql(in <-chan types.Entry, tableName string, db *sqlx.DB) {
 	// consume the channel with this sink
-	myWriter := &mysql.Writer{TableName: "watt2", DB: db}
+	myWriter := &mysql.Writer{TableName: tableName, DB: db}
 	// log.Printf("mysql.Writer: %v", myWriter)
 
-	monitor := &progress.Monitor{Batch: progress.BatchByDay}
+	monitor := &progress.Monitor{Batch: progress.BatchByDay * 10}
 	myWriter.Write(monitor.Monitor(in))
 	myWriter.Close()
 }

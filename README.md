@@ -3,10 +3,11 @@
 ## TODO
 
 - Bring back Evernote TODO to here...
-- <https://github.com/jackc/pgx>
+- Postgres Copy In: <https://github.com/jackc/pgx>
+- Gather performance/inegreity and history in markdoen (PERFORMACE.md)
+- e2e testing (with synth source)
 - [See Evernote](https://www.evernote.com/shard/s60/nl/1773032759/ae1b9921-7e85-4b75-a21b-86be7d524295/)
 
-- merge.Verify(a,b)
 - find best writeBatchSize in mysql writer 1k...32k : currently 10k
 - mv flux,ignore,jsonl,mysql to store/
 - try pg,sqlite (general sql module)
@@ -14,7 +15,7 @@
 ## InfluxDB
 
 ```bash
-docker exec -it goted1k_tedflux_1 bash
+docker exec -it go-ted1k_tedflux_1 bash
 influx -database ted -execute 'select count(value) from watt'
 select mean(value)*24/1000 from watt where time > '2008-01-01' and time < '2016-01-01' group by time(7d)
 ```
@@ -24,9 +25,9 @@ select mean(value)*24/1000 from watt where time > '2008-01-01' and time < '2016-
 Truncate for D,M,Y: <http://play.golang.org/p/PUNNHq9sh6>
 
 Continuous Queries are not appropriate for historical data loading.
-I should implement my own select .. into (in go), using tablenames as in mysql
+I should implement my own select .. into (in go), using table names as in mysql
 
-```influxql
+```InfluxQL
 select mean(value)*24/1000 into kwh_1d from watt where time > '2015-09-01' group by time(1d)
 ```
 
@@ -60,7 +61,7 @@ From Godel to local docker:
 
 ## MySQL inserts are ridiculously slow
 
-This is what we di to spead things up:
+This is what we did to speed things up:
 (all time measured on dirac/docker)
 
 - Initial naive approach: 550 ins/s
@@ -74,9 +75,12 @@ We lost data from `( 2016-02-14 21:24:21 , 2016-03-12 06:35:35 ]`
 ### Should check monthly sums after snapshots
 
 2015-09-28:
-.jsonl avg 100M, total 9026M
-.jsonl.gz avg 7M, total 629M
-.jsonl.bz2 avg 5M, total 384M
+
+|    format |  avg | total |
+| --------: | ---: | ----: |
+|    .jsonl | 100M | 9026M |
+| .jsonl.gz |   7M |  629M |
+| jsonl.bz2 |   5M |  384M |
 
 ```bash
 time md5sum $(find data/jsonl/month -type f -name \*.jsonl) | tee sums.txt
