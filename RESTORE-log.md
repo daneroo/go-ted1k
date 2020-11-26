@@ -73,6 +73,13 @@ mysql> select min(stamp),max(stamp),count(_) from watt where stamp<'2008-12-17 1
 | 2008-07-30 00:04:40 | 2008-12-17 19:19:20 | 10561089 |
 +---------------------+---------------------+----------+
 
+Once restored into Mysql:8.0 this restore took ~6.3Gb
+
+| size | path               |
+| ---- | ------------------ |
+| 8811 | /var/lib/mysql/    |
+| 6385 | /var/lib/mysql/ted |
+
 ## ted.watt-just2016.2016-02-14-1624.sql.gz
 
 2016-01-01 00:00:00 - 2016-02-14 21:24:21
