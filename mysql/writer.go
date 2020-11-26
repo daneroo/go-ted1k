@@ -1,9 +1,9 @@
 package mysql
 
 import (
-	"bytes"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/daneroo/go-ted1k/timer"
@@ -93,12 +93,11 @@ func (w *Writer) makeStmt(sql string) *sqlx.Stmt {
 }
 
 // make multiple value insert sql statement
-// TODO(daneroo): use strings.Builder instead of bytes.Buffer
 func (w *Writer) makeSQL(length int) string {
 	if length == 0 {
 		return ""
 	}
-	var sql bytes.Buffer
+	var sql strings.Builder
 	sql.WriteString(fmt.Sprintf(insertSQLFormat, w.TableName))
 	for i := 0; i < length-1; i++ {
 		sql.WriteString(",(?,?)")
