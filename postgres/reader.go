@@ -1,6 +1,7 @@
 package postgres
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -8,7 +9,7 @@ import (
 	"github.com/daneroo/go-ted1k/types"
 	"github.com/daneroo/go-ted1k/util"
 	"github.com/go-sql-driver/mysql"
-	"github.com/jmoiron/sqlx"
+	"github.com/jackc/pgx/v4"
 )
 
 const (
@@ -26,7 +27,7 @@ var (
 )
 
 type Reader struct {
-	DB        *sqlx.DB
+	Conn      *pgx.Conn
 	TableName string
 	Epoch     time.Time
 	MaxRows   int
@@ -54,7 +55,7 @@ func (r *Reader) Read() <-chan types.Entry {
 		}
 		// close the channel
 		close(src)
-		timer.Track(start, "mysql.Read", totalCount)
+		timer.Track(start, "postgres.Read", totalCount)
 	}(r)
 
 	return src
@@ -64,10 +65,15 @@ func (r *Reader) Read() <-chan types.Entry {
 // Returned rows starts at stamp > startTime (does not include the startTime bound).
 // A maximum of maxRows rows are read.
 // Return the maximum time stamp read, as well as the number of rows.
+// TODO(daneroo) error handling
 func (r *Reader) readRows(startTime time.Time, src chan<- types.Entry) (time.Time, int) {
-	sql := fmt.Sprintf("SELECT stamp,watt FROM %s where stamp>? ORDER BY stamp ASC LIMIT ?", r.TableName)
+	sql := fmt.Sprintf("SELECT stamp,watt FROM %s where stamp>$1 ORDER BY stamp ASC LIMIT $2", r.TableName)
 
-	rows, err := r.DB.Query(sql, startTime, r.MaxRows)
+	rows, err := r.Conn.Query(context.Background(), sql, startTime, r.MaxRows)
+	// TODO(daneroo) error handling
+	// if err != nil {
+	// 	return err
+	// }
 	defer rows.Close()
 	util.Checkerr(err)
 
@@ -87,5 +93,10 @@ func (r *Reader) readRows(startTime time.Time, src chan<- types.Entry) (time.Tim
 			src <- types.Entry{Stamp: stamp.Time, Watt: watt}
 		}
 	}
+	// TODO(daneroo) error handling
+	// Any errors encountered by rows.Next or rows.Scan will be returned here
+	// if rows.Err() != nil {
+	// 	return rows.Err()
+	// }
 	return lastStamp, count
 }

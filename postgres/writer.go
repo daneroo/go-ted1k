@@ -53,6 +53,10 @@ func (w *Writer) Write(src <-chan types.Entry) {
 
 // perform the actual batch insert
 func (w *Writer) flush(entries []types.Entry) {
+	w.writeWithMultipleInsert(entries)
+}
+
+func (w *Writer) writeWithMultipleInsert(entries []types.Entry) {
 	if len(entries) == 0 {
 		return
 	}
@@ -60,6 +64,7 @@ func (w *Writer) flush(entries []types.Entry) {
 	// log.Printf("flush: would have flushed %d entries", len(entries))
 	sql := w.makeSQL(len(entries))
 
+	// flatten the parameters into a single value array
 	vals := []interface{}{}
 	for _, entry := range entries {
 		vals = append(vals, entry.Stamp, entry.Watt)

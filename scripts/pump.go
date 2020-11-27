@@ -44,14 +44,20 @@ func main() {
 	// db := mysql.Setup(tableNames, myCredentials)
 	// defer db.Close()
 	conn := postgres.Setup(context.Background(), tableNames, pgCredentials)
-	// log.Printf("db: %v", conn)
 	defer conn.Close(context.Background())
 
-	// dirac = rate ~ 42k/s count: 31M - empty destination
-	// dirac = rate ~ 57k/s count: 31M - full destination
-	// after creating hypertable 47k/s empty, 101k/s full
+	// dirac = rate ~ 71k/s count: 31M - empty destination
+	// dirac = rate ~ 109k/s count: 31M - full destination
 	// dirac - size ~3.0G
-	// pipeToPostgres(fromSynth(), "watt", conn)
+	pipeToPostgres(fromSynth(), "watt", conn)
+
+	// e2e: verify postgres,fromSynth
+	// dirac = took 2m rate ~ 244k/s count: 31M
+	{
+		log.Println("Verifying synth<->postgres")
+		monitor := &progress.Monitor{Batch: progress.BatchByDay * 10}
+		verify(fromSynth(), monitor.Monitor(fromPostgres(conn)))
+	}
 
 	// gaps(fromMysql(db))
 	// dirac - rate ~ 801k/s count: 31M
@@ -81,28 +87,30 @@ func main() {
 	//  ** Jsonl -> Postgres
 	// 130k/s (~200M entries , SSD) - dirac - rate ~ 34702.6/s count: 223101124
 	// pipeToMysql(fromJsonl(), "watt", db)
+	//_ dirac - rate ~ XXk/s count: 223M - empty destination (non-hyper)
+	//_ dirac - rate ~ XXk/s count: 223M - full destination (non-hyper)
 	// dirac - took 1h30m rate ~ 41k/s count: 223M - empty destination (hyper)
-	// dirac - rate ~ XXk/s count: 31M - full destination (hyper)
-	// dirac - size 15G
-	pipeToPostgres(fromJsonl(), "watt", conn)
+	// dirac - took 1h28mm rate ~ 42k/s count: 223M - full destination (hyper)
+	// pipeToPostgres(fromJsonl(), "watt", conn)
 
 	//  ** Mysql -> Flux
 	// 116k/s (~200M entries , SSD, empty or full)
 	// pipeToFlux(fromMysql(db))
 
 	// 197k/s (~200M entries , SSD) - dirac rate ~ 102/s count: 223M
-	// verify(db)
+	// {
+	// 	monitor := &progress.Monitor{Batch: progress.BatchByDay}
+	// 	verify(fromJsonl(), monitor.Monitor(fromMysql(db)))
+	// }
+
 }
 
-func verify(db *sqlx.DB) {
-	monitor := &progress.Monitor{Batch: progress.BatchByDay}
-
-	vv := merge.Verify(fromJsonl(), monitor.Monitor(fromMysql(db)))
+func verify(a, b <-chan types.Entry) {
+	vv := merge.Verify(a, b)
 	log.Printf("Verified:\n")
 	for _, v := range vv {
 		log.Println(v)
 	}
-
 }
 
 func fromSynth() <-chan types.Entry {
@@ -115,6 +123,23 @@ func fromJsonl() <-chan types.Entry {
 	jsonlReader := jsonl.DefaultReader()
 	jsonlReader.Grain = timewalker.Month
 	return jsonlReader.Read()
+}
+
+func fromPostgres(conn *pgx.Conn) <-chan types.Entry {
+	// create a read-only channel for source Entry(s)
+	pgReader := &postgres.Reader{
+		TableName: "watt",
+		Conn:      conn,
+		// Epoch:     mysql.ThisYear,
+		// Epoch: mysql.Recent,
+		// Epoch: mysql.SixMonths,
+		//  About a 10M rows for ted.watt.2016-02-14-1555.sql.bz2
+		// Epoch: time.Date(2015, time.October, 1, 0, 0, 0, 0, time.UTC),
+		// Epoch: mysql.LastYear,
+		Epoch:   mysql.AllTime,
+		MaxRows: mysql.AboutADay,
+	}
+	return pgReader.Read()
 }
 
 func fromMysql(db *sqlx.DB) <-chan types.Entry {
