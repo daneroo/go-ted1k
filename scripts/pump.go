@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"time"
@@ -10,18 +11,20 @@ import (
 	"github.com/daneroo/go-ted1k/jsonl"
 	"github.com/daneroo/go-ted1k/merge"
 	"github.com/daneroo/go-ted1k/mysql"
+	"github.com/daneroo/go-ted1k/postgres"
 	"github.com/daneroo/go-ted1k/progress"
 	"github.com/daneroo/go-ted1k/synth"
 	"github.com/daneroo/go-ted1k/types"
 	"github.com/daneroo/timewalker"
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/jackc/pgx/v4"
 	"github.com/jmoiron/sqlx"
 )
 
 const (
-	// myCredentials = "ted:secret@tcp(192.168.99.100:3306)/ted"
-	// myCredentials = "ted:secret@tcp(127.0.0.1:3306)/ted"
-	myCredentials    = "ted:secret@tcp(0.0.0.0:3306)/ted"
+	myCredentials = "ted:secret@tcp(0.0.0.0:3306)/ted"
+	// pgCredentials    = "postgres://postgres:secret@127.0.0.1:5432/ted"
+	pgCredentials    = "postgres://postgres:secret@0.0.0.0:5432/ted"
 	fmtRFC3339Millis = "2006-01-02T15:04:05.000Z07:00"
 )
 
@@ -37,9 +40,18 @@ func main() {
 	log.SetOutput(new(logWriter))
 	log.Printf("Starting TED1K pump\n") // TODO(daneroo): add version,buildDate
 
-	tableNames := []string{"watt", "watt2", "watt3"}
-	db := mysql.Setup(tableNames, myCredentials)
-	defer db.Close()
+	tableNames := []string{"watt", "watt2"}
+	// db := mysql.Setup(tableNames, myCredentials)
+	// defer db.Close()
+	conn := postgres.Setup(context.Background(), tableNames, pgCredentials)
+	// log.Printf("db: %v", conn)
+	defer conn.Close(context.Background())
+
+	// dirac = rate ~ 42k/s count: 31M - empty destination
+	// dirac = rate ~ 57k/s count: 31M - full destination
+	// after creating hypertable 47k/s empty, 101k/s full
+	// dirac - size ~3.0G
+	// pipeToPostgres(fromSynth(), "watt", conn)
 
 	// gaps(fromMysql(db))
 	// dirac - rate ~ 801k/s count: 31M
@@ -53,21 +65,33 @@ func main() {
 	// dirac - rate ~ 814k/s count: 31M
 	// pipeToIgnore(fromSynth())
 
+	//  ** to Jsonl
 	// 190k/s (~200M entries , SSD) - dirac rate ~ 97k/s count: 223M
 	// pipeToJsonl(fromMysql(db))
 
+	//  ** Mysql -> Mysql
 	// 137k/s (~200M entries , SSD, empty destination) - dirac rate ~ 34k/s count: 223M
 	// 24k/s (~200M entries , SSD, full destination) - dirac rate ~ 13k/s count: 86M too slow stopped
 	// pipeToMysql(fromMysql(db), "watt2", db)
 
+	//  ** Jsonl -> Mysql
 	// 130k/s (~200M entries , SSD) - dirac - rate ~ 34702.6/s count: 223101124
 	// pipeToMysql(fromJsonl(), "watt", db)
 
+	//  ** Jsonl -> Postgres
+	// 130k/s (~200M entries , SSD) - dirac - rate ~ 34702.6/s count: 223101124
+	// pipeToMysql(fromJsonl(), "watt", db)
+	// dirac - took 1h30m rate ~ 41k/s count: 223M - empty destination (hyper)
+	// dirac - rate ~ XXk/s count: 31M - full destination (hyper)
+	// dirac - size 15G
+	pipeToPostgres(fromJsonl(), "watt", conn)
+
+	//  ** Mysql -> Flux
 	// 116k/s (~200M entries , SSD, empty or full)
 	// pipeToFlux(fromMysql(db))
 
 	// 197k/s (~200M entries , SSD) - dirac rate ~ 102/s count: 223M
-	verify(db)
+	// verify(db)
 }
 
 func verify(db *sqlx.DB) {
@@ -136,6 +160,16 @@ func pipeToMysql(in <-chan types.Entry, tableName string, db *sqlx.DB) {
 	monitor := &progress.Monitor{Batch: progress.BatchByDay * 10}
 	myWriter.Write(monitor.Monitor(in))
 	myWriter.Close()
+}
+
+func pipeToPostgres(in <-chan types.Entry, tableName string, conn *pgx.Conn) {
+	// consume the channel with this sink
+	pgWriter := &postgres.Writer{TableName: tableName, Conn: conn}
+	// log.Printf("mysql.Writer: %v", myWriter)
+
+	monitor := &progress.Monitor{Batch: progress.BatchByDay * 10}
+	pgWriter.Write(monitor.Monitor(in))
+	pgWriter.Close()
 }
 
 func pipeToFlux(in <-chan types.Entry) {

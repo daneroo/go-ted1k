@@ -4,13 +4,24 @@
 
 - Bring back Evernote TODO to here...
 - Postgres Copy In: <https://github.com/jackc/pgx>
-- Gather performance/inegreity and history in markdoen (PERFORMACE.md)
+- Timescaledb <https://docs.timescale.com/latest/getting-started/creating-hypertables>
+- Gather performance/integrity and history in markdown (PERFORMANCE.md)
 - e2e testing (with synth source)
 - [See Evernote](https://www.evernote.com/shard/s60/nl/1773032759/ae1b9921-7e85-4b75-a21b-86be7d524295/)
 
 - find best writeBatchSize in mysql writer 1k...32k : currently 10k
 - mv flux,ignore,jsonl,mysql to store/
 - try pg,sqlite (general sql module)
+
+## Postgres
+
+```sql
+CREATE TABLE IF NOT EXISTS watt (
+  -- timestamp [ (p) ] with time zone
+  stamp TIMESTAMP WITHOUT TIME ZONE NOT NULL PRIMARY KEY,
+  watt integer NOT NULL DEFAULT '0'
+);
+```
 
 ## InfluxDB
 
