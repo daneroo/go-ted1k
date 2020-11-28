@@ -9,6 +9,7 @@ import (
 
 	"github.com/daneroo/go-ted1k/timer"
 	"github.com/daneroo/go-ted1k/types"
+	"github.com/jackc/pgconn"
 	"github.com/jackc/pgx/v4"
 
 	// register mysql driver
@@ -53,13 +54,48 @@ func (w *Writer) Write(src <-chan types.Entry) {
 
 // perform the actual batch insert
 func (w *Writer) flush(entries []types.Entry) {
-	w.writeWithMultipleInsert(entries)
-}
-
-func (w *Writer) writeWithMultipleInsert(entries []types.Entry) {
 	if len(entries) == 0 {
 		return
 	}
+	// w.writeWithMultipleInsert(entries)
+	w.writeWithCopyFrom(entries)
+}
+
+// writeWithCopyFrom is the fastest way to insert, but has no "ON CONFLICT (stamp) DO NOTHING" mechanism,
+// so it falls back to writeWithMultipleInsert when we can assert the specific error
+// TODO(daneroo) move error handling and fallback to flush() method, or new wrapper
+func (w *Writer) writeWithCopyFrom(entries []types.Entry) {
+	rows := [][]interface{}{}
+	for _, entry := range entries {
+		rows = append(rows, []interface{}{entry.Stamp, entry.Watt})
+	}
+
+	copyCount, err := w.Conn.CopyFrom(
+		context.Background(),
+		pgx.Identifier{w.TableName},
+		[]string{"stamp", "watt"},
+		pgx.CopyFromRows(rows),
+	)
+	if err != nil {
+		if pge, ok := err.(*pgconn.PgError); ok {
+			// We know we have a pgconn.PgError
+			// pgconn.PgError: ERROR: duplicate key value violates unique constraint "watt_pkey" (SQLSTATE 23505)
+			if pge.Code == "23505" {
+				// log.Printf("Retrying withMultipleInsert: Code: %v TableName: %v ConstraintName: %v\n", pge.Code, pge.TableName, pge.ConstraintName)
+				w.writeWithMultipleInsert(entries)
+				// early return
+				return
+			}
+		}
+		log.Printf("Unable to insert (copyFrom): %v\n", err)
+
+	}
+	if copyCount != writeBatchSize {
+		log.Printf("writeWithCopyFrom inserted %d rows\n", copyCount)
+	}
+}
+
+func (w *Writer) writeWithMultipleInsert(entries []types.Entry) {
 
 	// log.Printf("flush: would have flushed %d entries", len(entries))
 	sql := w.makeSQL(len(entries))
@@ -73,7 +109,7 @@ func (w *Writer) writeWithMultipleInsert(entries []types.Entry) {
 	// commandTag, err := w.Conn.Exec(context.Background(), sql, vals...)
 	_, err := w.Conn.Exec(context.Background(), sql, vals...)
 	if err != nil {
-		log.Printf("Unable to execute write: %v\n", err)
+		log.Printf("Unable to execute multiple insert: %v\n", err)
 	}
 }
 

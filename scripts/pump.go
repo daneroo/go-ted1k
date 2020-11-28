@@ -46,13 +46,15 @@ func main() {
 	conn := postgres.Setup(context.Background(), tableNames, pgCredentials)
 	defer conn.Close(context.Background())
 
-	// dirac = rate ~ 71k/s count: 31M - empty destination
-	// dirac = rate ~ 109k/s count: 31M - full destination
+	// dirac = rate ~ 71k/s count: 31M - empty destination - withMultipleInsert
+	// dirac = rate ~ 109k/s count: 31M - full destination - withMultipleInsert
+	// dirac = rate ~ 159k/s count: 31M - empty destination - writeWithCopyFrom / withMultipleInsert as fallback
+	// dirac = rate ~ 100k/s count: 31M - full destination - writeWithCopyFrom / withMultipleInsert as fallback
 	// dirac - size ~3.0G
 	pipeToPostgres(fromSynth(), "watt", conn)
 
 	// e2e: verify postgres,fromSynth
-	// dirac = took 2m rate ~ 244k/s count: 31M
+	// dirac = took 2m rate ~ 240k/s count: 31M
 	{
 		log.Println("Verifying synth<->postgres")
 		monitor := &progress.Monitor{Batch: progress.BatchByDay * 10}

@@ -6,6 +6,7 @@ require (
 	github.com/daneroo/timewalker v0.0.0-20191205175543-901635cc214b
 	github.com/go-sql-driver/mysql v1.5.0
 	github.com/influxdata/influxdb v1.8.3
+	github.com/jackc/pgconn v1.7.2
 	github.com/jackc/pgx/v4 v4.9.2
 	github.com/jmoiron/sqlx v1.2.0
 	github.com/lib/pq v1.8.0 // indirect
