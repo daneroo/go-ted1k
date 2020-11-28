@@ -20,7 +20,7 @@ func Setup(ctx context.Context, tableNames []string, credentials string) *pgx.Co
 	for _, tableName := range tableNames {
 		createCopyTable(ctx, conn, tableName)
 	}
-	totalCount(ctx, conn)
+	// totalCount(ctx, conn)
 
 	return conn
 }

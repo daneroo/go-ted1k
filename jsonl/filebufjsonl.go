@@ -29,6 +29,7 @@ func (fbje *FBJE) Open(fileName string) error {
 	}
 
 	fbje.file = file
+	// TODO(daneroo): should this be bigger? bufio.NewWriterSize
 	fbje.bufw = bufio.NewWriter(fbje.file) // default size 4k
 	fbje.enc = json.NewEncoder(fbje.bufw)
 	fbje.isOpen = true
