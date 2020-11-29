@@ -5,6 +5,7 @@ package timer
 import (
 	"fmt"
 	"log"
+	"math"
 	"time"
 )
 
@@ -25,5 +26,19 @@ func format(elapsed time.Duration, name string, count int) string {
 // Rate formats count/elapsed as a string
 func Rate(elapsed time.Duration, count int) string {
 	rate := float64(count) / elapsed.Seconds()
-	return fmt.Sprintf("rate ~ %.1f/s", rate)
+	if math.IsNaN(rate) { // onlu happns if count and elapsed are both 0
+		rate = 0
+	}
+	units := "/s"
+	if math.IsInf(rate, 0) {
+		// leave as is
+	} else if rate > 1e6 {
+		rate /= 1e6
+		units = "M/s"
+	} else if rate > 1e3 {
+		rate /= 1e3
+		units = "k/s"
+	}
+
+	return fmt.Sprintf("rate ~ %.1f%s", rate, units)
 }

@@ -1,11 +1,11 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"time"
 
+	"github.com/daneroo/go-ted1k/ephemeral"
 	"github.com/daneroo/go-ted1k/flux"
 	"github.com/daneroo/go-ted1k/ignore"
 	"github.com/daneroo/go-ted1k/jsonl"
@@ -40,11 +40,33 @@ func main() {
 	log.SetOutput(new(logWriter))
 	log.Printf("Starting TED1K pump\n") // TODO(daneroo): add version,buildDate
 
-	tableNames := []string{"watt", "watt2"}
+	// tableNames := []string{"watt", "watt2"}
 	// db := mysql.Setup(tableNames, myCredentials)
 	// defer db.Close()
-	conn := postgres.Setup(context.Background(), tableNames, pgCredentials)
-	defer conn.Close(context.Background())
+	// conn := postgres.Setup(context.Background(), tableNames, pgCredentials)
+	// defer conn.Close(context.Background())
+
+	// New ephemral section
+	log.Println("-= synth/ignore unmonitored")
+	// ignore.Write(
+	// 	(&synth.Reader{Epoch: synth.ThisYear, TotalRows: 3.1415926e7}).Read(),
+	// )
+
+	time.Sleep(100 * time.Millisecond)
+	log.Println("-= synth/ignore monitored")
+	// ignore.Write(
+	// 	(&progress.Monitor{Batch: 1e8}).Monitor(
+	// 		(&synth.Reader{Epoch: synth.ThisYear, TotalRows: 3.1415926e7}).Read(),
+	// 	),
+	// )
+
+	time.Sleep(100 * time.Millisecond)
+	log.Println("-= ephemeral unmonitored")
+	ephemeral.NewWriter().Write(ephemeral.NewReader().Read())
+
+	time.Sleep(100 * time.Millisecond)
+	log.Println("-= ephemeral monitored")
+	ephemeral.NewWriter().Write(ephemeral.Monitor(ephemeral.NewReader().Read()))
 
 	// dirac = rate ~ 71k/s count: 31M - empty destination - withMultipleInsert
 	// dirac = rate ~ 109k/s count: 31M - full destination - withMultipleInsert
@@ -101,7 +123,7 @@ func main() {
 	// proxmox - 20m5s  - rate ~ 185k/s count: 223M - empty destination (non-hyper)
 	// proxmox - 24m57s - rate ~ 148k/s count: 223M - empty destination (hyper)
 	// proxmox - 30m54s - rate ~ 120k/s count: 223M - full destination (hyper)
-	pipeToPostgres(fromJsonl(), "watt", conn)
+	// pipeToPostgres(fromJsonl(), "watt", conn)
 
 	// proxmox - 21m - rate ~ 175k/s count: 223M
 	// proxmox - 23m - rate ~ 160k/s count: 223M (hyper)
