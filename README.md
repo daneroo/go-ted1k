@@ -3,15 +3,14 @@
 ## TODO
 
 - Bring back Evernote TODO to here...
-- Postgres Copy In: <https://github.com/jackc/pgx>
-- Timescaledb <https://docs.timescale.com/latest/getting-started/creating-hypertables>
+- channel timing (channel of slices of entries) - combine synth/ephemeral and ignore
+- progress on nats - with client
 - Gather performance/integrity and history in markdown (PERFORMANCE.md)
-- e2e testing (with synth source)
+- e2e testing (with synth source) in docker-compose
 - [See Evernote](https://www.evernote.com/shard/s60/nl/1773032759/ae1b9921-7e85-4b75-a21b-86be7d524295/)
 
 - find best writeBatchSize in mysql writer 1k...32k : currently 10k
 - mv flux,ignore,jsonl,mysql to store/
-- try pg,sqlite (general sql module)
 
 ## Postgres
 

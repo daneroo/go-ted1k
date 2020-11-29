@@ -68,8 +68,12 @@ func main() {
 	// ** to Ignore
 	// 342k/s (~200M entries , SSD) - dirac rate ~ 149k/s count: 223M
 	// pipeToIgnore(fromMysql(db))
+
 	// proxmox - 5m10s - rate ~ 718k/s count: 223M
+	// proxmox - 6m12s - rate ~ 598k/s count: 223M (hyper ch:0)
+	// proxmox - 4m33s - rate ~ 816k/s count: 223M (hyper ch:100)
 	// pipeToIgnore(fromPostgres(conn))
+
 	// 300k/s (~200M entries , SSD) - dirac rate ~ 193k/s count: 223M
 	// proxmox - 14m - rate ~ 275k/s count: 223M
 	// proxmox - 7m37s - rate ~ 488k/s count: 223M chCap:100 buf:32k
@@ -92,23 +96,22 @@ func main() {
 	// pipeToMysql(fromJsonl(), "watt", db)
 
 	//  ** Jsonl -> Postgres
-	// proxmox - 26m38s - rate ~ 140k/s count: 223M - empty destination (non-hyper) copyFrom w/multiInsert fallback
-	// redo proxmox - 26m38s - rate ~ 100k/s count: 223M - full destination (non-hyper) copyFrom w/multiInsert fallback
-	// redo proxmox - 26m38s - rate ~ 110k/s count: 223M - full destination (non-hyper) multiInsert
 	// dirac - took 1h30m rate ~ 41k/s count: 223M - empty destination (hyper)
 	// dirac - took 1h28mm rate ~ 42k/s count: 223M - full destination (hyper)
-	// proxmox - 30m34s - rate ~ 121k/s count: 223M - empty destination (hyper) copyFrom w/multiInsert fallback
-	// proxmox - 38m20s - rate ~ 97k/s count: 223M - full destination (hyper) copyFrom w/multiInsert fallback
-	// proxmox - 36m00s - rate ~ 103k/s count: 223M - full destination (hyper) multiInsert
-	// pipeToPostgres(fromJsonl(), "watt", conn)
+	// proxmox - 20m5s  - rate ~ 185k/s count: 223M - empty destination (non-hyper)
+	// proxmox - 24m57s - rate ~ 148k/s count: 223M - empty destination (hyper)
+	// proxmox - 30m54s - rate ~ 120k/s count: 223M - full destination (hyper)
+	pipeToPostgres(fromJsonl(), "watt", conn)
 
 	// proxmox - 21m - rate ~ 175k/s count: 223M
 	// proxmox - 23m - rate ~ 160k/s count: 223M (hyper)
-	// proxmox - ZZm - rate ~ ZZk/s count: 223M (hyper - new jsonl)
-	{
-		monitor := &progress.Monitor{Batch: progress.BatchByDay}
-		verify(fromJsonl(), monitor.Monitor(fromPostgres(conn)))
-	}
+	// proxmox - 10m12s - rate ~ 364k/s count: 223M (hyper - new jsonl)
+	// proxmox - 9m45s - rate ~ 381k/s count: 223M (hyper - new jsonl new pgReader ch:100)
+	// proxmox - 9m39s - rate ~ 385k/s count: 223M (hyper - new jsonl new pgReader ch:1000)
+	// {
+	// 	monitor := &progress.Monitor{Batch: progress.BatchByDay}
+	// 	verify(fromJsonl(), monitor.Monitor(fromPostgres(conn)))
+	// }
 
 	//  ** Mysql -> Flux
 	// 116k/s (~200M entries , SSD, empty or full)

@@ -26,6 +26,7 @@ var (
 	FarFuture = time.Date(2037, time.January, 0, 0, 0, 0, 0, time.UTC)
 )
 
+// Reader needs a NewContructor()...
 type Reader struct {
 	Conn      *pgx.Conn
 	TableName string
@@ -33,9 +34,13 @@ type Reader struct {
 	MaxRows   int
 }
 
+const (
+	channelCapacity = 100
+)
+
 // Read() creates and returns a channel of types.Entry
 func (r *Reader) Read() <-chan types.Entry {
-	src := make(chan types.Entry)
+	src := make(chan types.Entry, channelCapacity)
 
 	go func(r *Reader) {
 		start := time.Now()

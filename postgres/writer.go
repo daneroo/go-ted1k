@@ -11,9 +11,6 @@ import (
 	"github.com/daneroo/go-ted1k/types"
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgx/v4"
-
-	// register mysql driver
-	_ "github.com/go-sql-driver/mysql"
 )
 
 const (
@@ -49,7 +46,7 @@ func (w *Writer) Write(src <-chan types.Entry) {
 	}
 	// last flush
 	w.flush(entries)
-	timer.Track(start, "mysql.Write", count)
+	timer.Track(start, "postgres.Write", count)
 }
 
 // perform the actual batch insert
