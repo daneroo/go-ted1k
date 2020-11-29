@@ -16,7 +16,8 @@ var (
 
 // Reader contains the initialized params
 type Reader struct {
-	Epoch     time.Time
+	Epoch time.Time
+	// Slice Batching, 1000 is better if useful, 100 performant, 10 is still ok.
 	Batch     int
 	TotalRows int
 }
