@@ -37,24 +37,41 @@ type Reader struct {
 	Conn      *pgx.Conn
 	TableName string
 	Epoch     time.Time
-	MaxRows   int
+	// MaxRows is the max number rows readb from database per query (LIMIT)
+	MaxRows int
+	// Batch is the capacity of a single slice []types.Entry
+	Batch int
+	// this state is shared to preserve split of Read(),readOneFile()
+	src   chan []types.Entry
+	slice []types.Entry
 }
 
 const (
-	channelCapacity = 100
+	channelCapacity = 2 // this is now a channel of slices
 )
 
+// NewReader is a constructor for the Reader struct
+func NewReader(conn *pgx.Conn, tableName string) *Reader {
+	return &Reader{
+		Conn:      conn,
+		TableName: tableName,
+		Epoch:     AllTime,
+		MaxRows:   AboutADay,
+	}
+}
+
 // Read() creates and returns a channel of types.Entry
-func (r *Reader) Read() <-chan types.Entry {
-	src := make(chan types.Entry, channelCapacity)
+func (r *Reader) Read() <-chan []types.Entry {
+	r.src = make(chan []types.Entry, channelCapacity)
 
 	go func(r *Reader) {
 		start := time.Now()
+		r.slice = make([]types.Entry, 0, r.Batch)
 
 		totalCount := 0
 		startTime := r.Epoch
 		for {
-			lastStamp, rowCount := r.readRows(startTime, src)
+			lastStamp, rowCount := r.readRows(startTime)
 
 			totalCount += rowCount
 			startTime = lastStamp
@@ -64,12 +81,16 @@ func (r *Reader) Read() <-chan types.Entry {
 				break
 			}
 		}
+		// flush the slice
+		r.src <- r.slice
+
 		// close the channel
-		close(src)
+		close(r.src)
+		r.src = nil
 		timer.Track(start, "postgres.Read", totalCount)
 	}(r)
 
-	return src
+	return r.src
 }
 
 // readRows reads a set of entries and sends them into the src channel.
@@ -77,7 +98,7 @@ func (r *Reader) Read() <-chan types.Entry {
 // A maximum of maxRows rows are read.
 // Return the maximum time stamp read, as well as the number of rows.
 // TODO(daneroo) error handling
-func (r *Reader) readRows(startTime time.Time, src chan<- types.Entry) (time.Time, int) {
+func (r *Reader) readRows(startTime time.Time) (time.Time, int) {
 	sql := fmt.Sprintf("SELECT stamp,watt FROM %s where stamp>$1 ORDER BY stamp ASC LIMIT $2", r.TableName)
 
 	rows, err := r.Conn.Query(context.Background(), sql, startTime, r.MaxRows)
@@ -101,7 +122,14 @@ func (r *Reader) readRows(startTime time.Time, src chan<- types.Entry) (time.Tim
 		count++
 		if stamp.Valid {
 			lastStamp = stamp.Time
-			src <- types.Entry{Stamp: stamp.Time, Watt: watt}
+			// src <- types.Entry{Stamp: stamp.Time, Watt: watt}
+			entry := types.Entry{Stamp: stamp.Time, Watt: watt}
+			r.slice = append(r.slice, entry)
+			if len(r.slice) == cap(r.slice) {
+				r.src <- r.slice
+				r.slice = make([]types.Entry, 0, r.Batch)
+			}
+
 		}
 	}
 	// TODO(daneroo) error handling

@@ -8,37 +8,43 @@ import (
 )
 
 // Verify compares a zipEntry stream to consecutive match types
-func Verify(aa <-chan types.Entry, bb <-chan types.Entry) []string {
-	zip := zip(aa, bb)
+func Verify(aa <-chan []types.Entry, bb <-chan []types.Entry) []string {
+	zip := zip(unwrapSliceChannel(aa), unwrapSliceChannel(bb))
 
 	vv := make([]string, 0)
 	first := zipEntry{match: -1}
 	last := zipEntry{match: -1}
+	consecutive := 0
 
 	for ze := range zip {
 
 		if first.match == -1 {
 			first = ze
+			consecutive = 0
 		}
 		if ze.match != first.match {
-			vv = append(vv, fmt.Sprintf("[%s, %s] %s",
+			vv = append(vv, fmt.Sprintf("[%s, %s](%d) %s",
 				first.entry.Stamp.Format(time.RFC3339),
 				last.entry.Stamp.Format(time.RFC3339),
+				consecutive,
 				first.match.String(),
 			))
 
 			first = ze
+			consecutive = 0
 		}
+		consecutive++
 		last = ze
 	}
 
 	if last.match != -1 {
-		vv = append(vv, fmt.Sprintf("[%s, %s] %s",
+		vv = append(vv, fmt.Sprintf("[%s, %s](%d) %s",
 			first.entry.Stamp.Format(time.RFC3339),
 			last.entry.Stamp.Format(time.RFC3339),
+			consecutive,
 			first.match.String(),
 		))
-	}
+	} // else (no etries at all?)
 
 	return vv
 }
@@ -113,4 +119,17 @@ func zip(aa <-chan types.Entry, bb <-chan types.Entry) <-chan zipEntry {
 		close(zip)
 	}()
 	return zip
+}
+
+func unwrapSliceChannel(wrappedSrc <-chan []types.Entry) <-chan types.Entry {
+	src := make(chan types.Entry)
+	go func() {
+		for slice := range wrappedSrc {
+			for _, entry := range slice { // index,entry
+				src <- entry
+			}
+		}
+		close(src)
+	}()
+	return src
 }

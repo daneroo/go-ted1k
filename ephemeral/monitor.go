@@ -11,7 +11,8 @@ import (
 const monitorBatch = 1e7
 
 // Monitor creates a passthrough channel of Entry, which is monitored
-func Monitor(src <-chan []types.Entry) <-chan []types.Entry {
+// TODO(daneroo): add configuration and state (receiver), with Name and break behaviour
+func Monitor(name string, src <-chan []types.Entry) <-chan []types.Entry {
 	dst := make(chan []types.Entry)
 
 	go func() {
@@ -28,7 +29,7 @@ func Monitor(src <-chan []types.Entry) <-chan []types.Entry {
 					innerStart = time.Now()
 
 					day := entry.Stamp.Format("2006-01-02")
-					msg := fmt.Sprintf("ephemeral.Monitor (%s) inner %s,", day, innerRate)
+					msg := fmt.Sprintf("%s (%s) inner %s,", name, day, innerRate)
 					timer.Track(start, msg, count)
 				}
 			}
@@ -39,7 +40,7 @@ func Monitor(src <-chan []types.Entry) <-chan []types.Entry {
 
 		// close the channel
 		close(dst)
-		timer.Track(start, "ephemeral.Monitor", count)
+		timer.Track(start, name, count)
 	}()
 
 	return dst

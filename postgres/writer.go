@@ -25,24 +25,34 @@ type Writer struct {
 
 // Close frees prepared Statements
 func (w *Writer) Close() {
-	log.Printf("Closing things.. (not connection")
+	log.Printf("Closing things.. (not connection)")
 }
 
-func (w *Writer) Write(src <-chan types.Entry) {
+// NewWriter is a constructor for the Writer struct
+func NewWriter(conn *pgx.Conn, tableName string) *Writer {
+	return &Writer{
+		Conn:      conn,
+		TableName: tableName,
+	}
+}
+
+func (w *Writer) Write(src <-chan []types.Entry) {
 	start := time.Now()
 	count := 0
 	entries := make([]types.Entry, 0, writeBatchSize)
 
-	for entry := range src {
+	for slice := range src {
+		for _, entry := range slice {
 
-		entries = append(entries, entry)
+			entries = append(entries, entry)
 
-		count++
-		if (len(entries) % writeBatchSize) == 0 {
-			w.flush(entries)
-			entries = make([]types.Entry, 0, writeBatchSize)
+			count++
+			if (len(entries) % writeBatchSize) == 0 {
+				w.flush(entries)
+				entries = make([]types.Entry, 0, writeBatchSize)
+			}
+
 		}
-
 	}
 	// last flush
 	w.flush(entries)

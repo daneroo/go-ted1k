@@ -46,55 +46,55 @@ func TestMergeTypeString(t *testing.T) {
 
 func TestVerify(t *testing.T) {
 	var data = []struct {
-		a   <-chan types.Entry
-		b   <-chan types.Entry
+		a   <-chan []types.Entry
+		b   <-chan []types.Entry
 		msg []string // expected
 	}{
 		{
-			a:   chanFromSlice([]int{}),
-			b:   chanFromSlice([]int{}),
+			a:   wrap(chanFromSlice([]int{})),
+			b:   wrap(chanFromSlice([]int{})),
 			msg: []string{},
 		}, {
-			a:   chanFromSlice([]int{1000}),
-			b:   chanFromSlice([]int{1000}),
-			msg: []string{"[2016-01-01T00:00:00Z, 2016-01-01T00:00:00Z] Equal"},
+			a:   wrap(chanFromSlice([]int{1000})),
+			b:   wrap(chanFromSlice([]int{1000})),
+			msg: []string{"[2016-01-01T00:00:00Z, 2016-01-01T00:00:00Z](1) Equal"},
 		}, {
-			a:   chanFromSlice([]int{1000}),
-			b:   chanFromSlice([]int{2000}),
-			msg: []string{"[2016-01-01T00:00:00Z, 2016-01-01T00:00:00Z] Conflict"},
+			a:   wrap(chanFromSlice([]int{1000})),
+			b:   wrap(chanFromSlice([]int{2000})),
+			msg: []string{"[2016-01-01T00:00:00Z, 2016-01-01T00:00:00Z](1) Conflict"},
 		}, {
-			a:   chanFromSlice([]int{1000, 2000}),
-			b:   chanFromSlice([]int{1000, 2000}),
-			msg: []string{"[2016-01-01T00:00:00Z, 2016-01-01T00:00:01Z] Equal"},
+			a:   wrap(chanFromSlice([]int{1000, 2000})),
+			b:   wrap(chanFromSlice([]int{1000, 2000})),
+			msg: []string{"[2016-01-01T00:00:00Z, 2016-01-01T00:00:01Z](2) Equal"},
 		}, {
-			a: chanFromSlice([]int{1000, 2000}),
-			b: chanFromSlice([]int{1000, 2000, 3000}),
+			a: wrap(chanFromSlice([]int{1000, 2000})),
+			b: wrap(chanFromSlice([]int{1000, 2000, 3000})),
 			msg: []string{
-				"[2016-01-01T00:00:00Z, 2016-01-01T00:00:01Z] Equal",
-				"[2016-01-01T00:00:02Z, 2016-01-01T00:00:02Z] MissingInA",
+				"[2016-01-01T00:00:00Z, 2016-01-01T00:00:01Z](2) Equal",
+				"[2016-01-01T00:00:02Z, 2016-01-01T00:00:02Z](1) MissingInA",
 			},
 		}, {
-			a: chanFromSlice([]int{1000, 2000, 3000}),
-			b: chanFromSlice([]int{1000, 2000}),
+			a: wrap(chanFromSlice([]int{1000, 2000, 3000})),
+			b: wrap(chanFromSlice([]int{1000, 2000})),
 			msg: []string{
-				"[2016-01-01T00:00:00Z, 2016-01-01T00:00:01Z] Equal",
-				"[2016-01-01T00:00:02Z, 2016-01-01T00:00:02Z] MissingInB",
+				"[2016-01-01T00:00:00Z, 2016-01-01T00:00:01Z](2) Equal",
+				"[2016-01-01T00:00:02Z, 2016-01-01T00:00:02Z](1) MissingInB",
 			},
 		}, {
-			a: chanFromSlice([]int{1000, -1, 3000}),
-			b: chanFromSlice([]int{1000, 2000, 3000}),
+			a: wrap(chanFromSlice([]int{1000, -1, 3000})),
+			b: wrap(chanFromSlice([]int{1000, 2000, 3000})),
 			msg: []string{
-				"[2016-01-01T00:00:00Z, 2016-01-01T00:00:00Z] Equal",
-				"[2016-01-01T00:00:01Z, 2016-01-01T00:00:01Z] MissingInA",
-				"[2016-01-01T00:00:02Z, 2016-01-01T00:00:02Z] Equal",
+				"[2016-01-01T00:00:00Z, 2016-01-01T00:00:00Z](1) Equal",
+				"[2016-01-01T00:00:01Z, 2016-01-01T00:00:01Z](1) MissingInA",
+				"[2016-01-01T00:00:02Z, 2016-01-01T00:00:02Z](1) Equal",
 			},
 		}, {
-			a: chanFromSlice([]int{1000, 2000, 3000}),
-			b: chanFromSlice([]int{1000, -1, 3000}),
+			a: wrap(chanFromSlice([]int{1000, 2000, 3000})),
+			b: wrap(chanFromSlice([]int{1000, -1, 3000})),
 			msg: []string{
-				"[2016-01-01T00:00:00Z, 2016-01-01T00:00:00Z] Equal",
-				"[2016-01-01T00:00:01Z, 2016-01-01T00:00:01Z] MissingInB",
-				"[2016-01-01T00:00:02Z, 2016-01-01T00:00:02Z] Equal",
+				"[2016-01-01T00:00:00Z, 2016-01-01T00:00:00Z](1) Equal",
+				"[2016-01-01T00:00:01Z, 2016-01-01T00:00:01Z](1) MissingInB",
+				"[2016-01-01T00:00:02Z, 2016-01-01T00:00:02Z](1) Equal",
 			},
 		},
 	}
@@ -208,4 +208,20 @@ func chanFromSlice(ww []int) <-chan types.Entry {
 		close(src)
 	}()
 	return src
+}
+
+// wrap in slices of 1
+func wrap(unwrapedSrc <-chan types.Entry) <-chan []types.Entry {
+	src := make(chan []types.Entry)
+	go func() {
+		for entry := range unwrapedSrc {
+			// wrapped := []types.Entry{entry}
+			wrapped := make([]types.Entry, 0, 1)
+			wrapped = append(wrapped, entry)
+			src <- wrapped
+		}
+		close(src)
+	}()
+	return src
+
 }

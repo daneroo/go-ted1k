@@ -28,7 +28,7 @@ func NewReader() *Reader {
 	return &Reader{Epoch: ThisYear, Batch: 1000, TotalRows: 3.1415926e7}
 }
 
-// Read() creates and returns a channel of types.Entry
+// Read() creates and returns a channel of []types.Entry
 func (r *Reader) Read() <-chan []types.Entry {
 	src := make(chan []types.Entry)
 

@@ -25,7 +25,5 @@ func (w *Writer) Write(src <-chan []types.Entry) {
 			count++
 		}
 	}
-	for range src {
-	}
 	timer.Track(start, "ephemeral.Write", count)
 }

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"time"
@@ -13,11 +14,8 @@ import (
 	"github.com/daneroo/go-ted1k/mysql"
 	"github.com/daneroo/go-ted1k/postgres"
 	"github.com/daneroo/go-ted1k/progress"
-	"github.com/daneroo/go-ted1k/synth"
 	"github.com/daneroo/go-ted1k/types"
-	"github.com/daneroo/timewalker"
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/jackc/pgx/v4"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -40,33 +38,45 @@ func main() {
 	log.SetOutput(new(logWriter))
 	log.Printf("Starting TED1K pump\n") // TODO(daneroo): add version,buildDate
 
-	// tableNames := []string{"watt", "watt2"}
+	tableNames := []string{"watt", "watt2"}
 	// db := mysql.Setup(tableNames, myCredentials)
 	// defer db.Close()
-	// conn := postgres.Setup(context.Background(), tableNames, pgCredentials)
-	// defer conn.Close(context.Background())
+	conn := postgres.Setup(context.Background(), tableNames, pgCredentials)
+	defer conn.Close(context.Background())
 
-	// New ephemral section
-	log.Println("-= synth/ignore unmonitored")
-	// ignore.Write(
-	// 	(&synth.Reader{Epoch: synth.ThisYear, TotalRows: 3.1415926e7}).Read(),
-	// )
+	if false {
 
-	time.Sleep(100 * time.Millisecond)
-	log.Println("-= synth/ignore monitored")
-	// ignore.Write(
-	// 	(&progress.Monitor{Batch: 1e8}).Monitor(
-	// 		(&synth.Reader{Epoch: synth.ThisYear, TotalRows: 3.1415926e7}).Read(),
-	// 	),
-	// )
+		time.Sleep(100 * time.Millisecond)
+		log.Println("-= ephemeral -> ephemeral")
+		// ephemeral.NewWriter().Write(ephemeral.NewReader().Read()) // unmonitored
+		ephemeral.NewWriter().Write(ephemeral.Monitor("ephemeral->ephemeral", ephemeral.NewReader().Read())) // monitored
 
-	time.Sleep(100 * time.Millisecond)
-	log.Println("-= ephemeral unmonitored")
-	ephemeral.NewWriter().Write(ephemeral.NewReader().Read())
+		time.Sleep(100 * time.Millisecond)
+		log.Println("-= ephemeral -> jsonl")
+		// jsonl.NewWriter().Write(ephemeral.NewReader().Read()) // unmonitored
+		jsonl.NewWriter().Write(ephemeral.Monitor("ephemeral->jsonl", ephemeral.NewReader().Read())) // monitored
 
-	time.Sleep(100 * time.Millisecond)
-	log.Println("-= ephemeral monitored")
-	ephemeral.NewWriter().Write(ephemeral.Monitor(ephemeral.NewReader().Read()))
+		time.Sleep(100 * time.Millisecond)
+		log.Println("-= jsonl -> ephemeral")
+		// ephemeral.NewWriter().Write(jsonl.NewReader().Read()) // unmonitored
+		ephemeral.NewWriter().Write(ephemeral.Monitor("jsonl -> ephemeral", jsonl.NewReader().Read())) // monitored
+
+		time.Sleep(100 * time.Millisecond)
+		log.Println("-= ephemeral -> postgres")
+		// postgres.NewWriter().Write(ephemeral.NewReader().Read())                                        // unmonitored
+		postgres.NewWriter(conn, tableNames[0]).Write(ephemeral.Monitor("ephemeral->postgres", ephemeral.NewReader().Read()))    // monitored
+		postgres.NewWriter(conn, tableNames[0]).Write(ephemeral.Monitor("ephemeral->postgres(2)", ephemeral.NewReader().Read())) // monitored
+
+		time.Sleep(100 * time.Millisecond)
+		log.Println("-= postgres -> ephemeral")
+		// ephemeral.NewWriter().Write(jsonl.NewReader().Read())                                          // unmonitored
+		ephemeral.NewWriter().Write(ephemeral.Monitor("postgres -> ephemeral", postgres.NewReader(conn, tableNames[0]).Read())) // monitored
+	}
+
+	verify("ephemeral<->ephemeral", ephemeral.NewReader().Read(), ephemeral.NewReader().Read())
+	verify("jsonl<->ephemeral", jsonl.NewReader().Read(), ephemeral.NewReader().Read())
+	verify("postgres<->ephemeral", postgres.NewReader(conn, tableNames[0]).Read(), ephemeral.NewReader().Read())
+	verify("postgres<->jsonl", postgres.NewReader(conn, tableNames[0]).Read(), jsonl.NewReader().Read())
 
 	// dirac = rate ~ 71k/s count: 31M - empty destination - withMultipleInsert
 	// dirac = rate ~ 109k/s count: 31M - full destination - withMultipleInsert
@@ -147,42 +157,41 @@ func main() {
 
 }
 
-func verify(a, b <-chan types.Entry) {
+func verify(name string, a, b <-chan []types.Entry) {
 	vv := merge.Verify(a, b)
-	log.Printf("Verified:\n")
+	log.Printf("Verified %s:\n", name)
 	for _, v := range vv {
 		log.Println(v)
 	}
 }
 
-func fromSynth() <-chan types.Entry {
-	// math.PI * 1e7 ~ 1 year!
-	synthReader := &synth.Reader{Epoch: synth.ThisYear, TotalRows: 3.1415926e7}
-	return synthReader.Read()
-}
+// func fromSynth() <-chan types.Entry {
+// 	// math.PI * 1e7 ~ 1 year!
+// 	synthReader := &synth.Reader{Epoch: synth.ThisYear, TotalRows: 3.1415926e7}
+// 	return synthReader.Read()
+// }
 
-func fromJsonl() <-chan types.Entry {
-	jsonlReader := jsonl.DefaultReader()
-	jsonlReader.Grain = timewalker.Month
-	return jsonlReader.Read()
-}
+// func fromJsonl() <-chan types.Entry {
+// 	jsonlReader := jsonl.NewReader()
+// 	return jsonlReader.Read()
+// }
 
-func fromPostgres(conn *pgx.Conn) <-chan types.Entry {
-	// create a read-only channel for source Entry(s)
-	pgReader := &postgres.Reader{
-		TableName: "watt",
-		Conn:      conn,
-		// Epoch:     mysql.ThisYear,
-		// Epoch: mysql.Recent,
-		// Epoch: mysql.SixMonths,
-		//  About a 10M rows for ted.watt.2016-02-14-1555.sql.bz2
-		// Epoch: time.Date(2015, time.October, 1, 0, 0, 0, 0, time.UTC),
-		// Epoch: mysql.LastYear,
-		Epoch:   mysql.AllTime,
-		MaxRows: mysql.AboutADay,
-	}
-	return pgReader.Read()
-}
+// func fromPostgres(conn *pgx.Conn) <-chan types.Entry {
+// 	// create a read-only channel for source Entry(s)
+// 	pgReader := &postgres.Reader{
+// 		TableName: "watt",
+// 		Conn:      conn,
+// 		// Epoch:     mysql.ThisYear,
+// 		// Epoch: mysql.Recent,
+// 		// Epoch: mysql.SixMonths,
+// 		//  About a 10M rows for ted.watt.2016-02-14-1555.sql.bz2
+// 		// Epoch: time.Date(2015, time.October, 1, 0, 0, 0, 0, time.UTC),
+// 		// Epoch: mysql.LastYear,
+// 		Epoch:   mysql.AllTime,
+// 		MaxRows: mysql.AboutADay,
+// 	}
+// 	return pgReader.Read()
+// }
 
 func fromMysql(db *sqlx.DB) <-chan types.Entry {
 	// create a read-only channel for source Entry(s)
@@ -211,13 +220,11 @@ func pipeToIgnore(in <-chan types.Entry) {
 	ignore.Write(monitor.Monitor(in))
 }
 
-func pipeToJsonl(in <-chan types.Entry) {
-	jsonlWriter := jsonl.DefaultWriter()
-	jsonlWriter.Grain = timewalker.Month
-
-	monitor := &progress.Monitor{Batch: progress.BatchByDay}
-	jsonlWriter.Write(monitor.Monitor(in))
-}
+// func pipeToJsonl(in <-chan types.Entry) {
+// 	jsonlWriter := jsonl.NewWriter()
+// 	monitor := &progress.Monitor{Batch: progress.BatchByDay}
+// 	jsonlWriter.Write(monitor.Monitor(in))
+// }
 
 func pipeToMysql(in <-chan types.Entry, tableName string, db *sqlx.DB) {
 	// consume the channel with this sink
@@ -229,15 +236,15 @@ func pipeToMysql(in <-chan types.Entry, tableName string, db *sqlx.DB) {
 	myWriter.Close()
 }
 
-func pipeToPostgres(in <-chan types.Entry, tableName string, conn *pgx.Conn) {
-	// consume the channel with this sink
-	pgWriter := &postgres.Writer{TableName: tableName, Conn: conn}
-	// log.Printf("mysql.Writer: %v", myWriter)
+// func pipeToPostgres(in <-chan types.Entry, tableName string, conn *pgx.Conn) {
+// 	// consume the channel with this sink
+// 	pgWriter := &postgres.Writer{TableName: tableName, Conn: conn}
+// 	// log.Printf("mysql.Writer: %v", myWriter)
 
-	monitor := &progress.Monitor{Batch: progress.BatchByDay * 10}
-	pgWriter.Write(monitor.Monitor(in))
-	pgWriter.Close()
-}
+// 	monitor := &progress.Monitor{Batch: progress.BatchByDay * 10}
+// 	pgWriter.Write(monitor.Monitor(in))
+// 	pgWriter.Close()
+// }
 
 func pipeToFlux(in <-chan types.Entry) {
 	fluxWriter := flux.DefaultWriter()

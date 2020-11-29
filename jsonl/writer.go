@@ -12,25 +12,36 @@ import (
 
 // Writer is ...
 type Writer struct {
-	Grain timewalker.Duration
-	enc   FBJE
-	intvl timewalker.Interval
+	Grain    timewalker.Duration
+	BasePath string
+	enc      FBJE
+	intvl    timewalker.Interval
+}
+
+// NewWriter is a constructor for the Writer struct
+func NewWriter() *Writer {
+	return &Writer{
+		Grain:    timewalker.Month,
+		BasePath: defaultBasePath,
+	}
 }
 
 // Consume the types.Entry (receive only) channel
 // preforming batched writes (of size writeBatchSize)
 // Also performs progress logging (and timing)
-func (w *Writer) Write(src <-chan types.Entry) {
+func (w *Writer) Write(src <-chan []types.Entry) {
 	start := time.Now()
 	count := 0
 
-	for entry := range src {
-		count++
+	for slice := range src {
+		for _, entry := range slice {
+			count++
 
-		w.openFor(entry)
-		err := w.enc.Encode(&entry)
-		util.Checkerr(err)
+			w.openFor(entry)
+			err := w.enc.Encode(&entry)
+			util.Checkerr(err)
 
+		}
 	}
 	w.close()
 	timer.Track(start, "jsonl.Write", count)
@@ -40,8 +51,7 @@ func (w *Writer) close() {
 	w.enc.Close()
 }
 
-// Does 4 things; open File/buffer/encoder/Interval
-//
+// Does 4 things; open File, buffer, encoder, Interval
 func (w *Writer) openFor(entry types.Entry) {
 	// could test Start==End (not initialized)
 	if !w.intvl.Start.IsZero() {
@@ -70,7 +80,7 @@ func (w *Writer) openFor(entry types.Entry) {
 		// log.Printf("Should open: %s", w.intvl)
 
 		// this make directories as well...
-		file, err := pathFor(w.Grain, w.intvl)
+		file, err := pathFor(w.BasePath, w.Grain, w.intvl)
 		util.Checkerr(err)
 
 		err = w.enc.Open(file)
