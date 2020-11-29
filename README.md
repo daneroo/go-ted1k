@@ -3,10 +3,13 @@
 ## TODO
 
 - Bring back Evernote TODO to here...
-- channel timing (channel of slices of entries) - combine synth/ephemeral and ignore
+- channels of slices `chan []types.Entry`
+  - Extract slice manipulation
+  - convert postgres/jsonl/mysql/(flux)
+  - verfy and merge - for faster inserts
+- e2e testing (with ephemeral source) in docker-compose
 - progress on nats - with client
 - Gather performance/integrity and history in markdown (PERFORMANCE.md)
-- e2e testing (with synth source) in docker-compose
 - [See Evernote](https://www.evernote.com/shard/s60/nl/1773032759/ae1b9921-7e85-4b75-a21b-86be7d524295/)
 
 - find best writeBatchSize in mysql writer 1k...32k : currently 10k
