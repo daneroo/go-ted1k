@@ -43,12 +43,12 @@ func Verify(aa <-chan types.Entry, bb <-chan types.Entry) []string {
 	return vv
 }
 
-// MergeType classifies each entry in Equal,Conflic,MissingInA ot MissingInB
-type MergeType int
+// Type classifies each entry in Equal,Conflic,MissingInA ot MissingInB
+type Type int
 
 const (
 	// Equal denotes twow entries have identical values (for the same timestamp)
-	Equal MergeType = iota // 0
+	Equal Type = iota // 0
 	// Conflict denotes twow entries have conficting values (for the same timestamp)
 	Conflict // 1
 	// MissingInA denotes the entry is not present in the A channel
@@ -57,7 +57,7 @@ const (
 	MissingInB // 3
 )
 
-func (m MergeType) String() string {
+func (m Type) String() string {
 	switch m {
 	case Equal:
 		return "Equal"
@@ -73,7 +73,7 @@ func (m MergeType) String() string {
 
 type zipEntry struct {
 	entry types.Entry //anonymous field Car
-	match MergeType
+	match Type
 }
 
 // Zip compares two Entry channels, expecting the values to be time sorted,

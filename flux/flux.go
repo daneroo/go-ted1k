@@ -14,6 +14,7 @@ import (
 	client "github.com/influxdata/influxdb/client/v2"
 )
 
+// Writer is ...
 type Writer struct {
 	Host           string
 	Port           int
@@ -23,6 +24,7 @@ type Writer struct {
 	con            client.Client
 }
 
+// DefaultWriter is ...
 func DefaultWriter() *Writer {
 	w := &Writer{
 		Host:           "0.0.0.0",

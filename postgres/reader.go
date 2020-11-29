@@ -18,11 +18,17 @@ const (
 )
 
 var (
-	ThisYear  = time.Date(2016, time.January, 1, 0, 0, 0, 0, time.UTC)
-	Recent    = time.Date(2015, time.September, 25, 0, 0, 0, 0, time.UTC)
+	// ThisYear is ...
+	ThisYear = time.Date(2016, time.January, 1, 0, 0, 0, 0, time.UTC)
+	// Recent is ...
+	Recent = time.Date(2015, time.September, 25, 0, 0, 0, 0, time.UTC)
+	// SixMonths is ...
 	SixMonths = time.Date(2015, time.July, 1, 0, 0, 0, 0, time.UTC)
-	LastYear  = time.Date(2015, time.January, 1, 0, 0, 0, 0, time.UTC)
-	AllTime   = time.Date(1970, time.January, 0, 0, 0, 0, 0, time.UTC)
+	// LastYear  is ...
+	LastYear = time.Date(2015, time.January, 1, 0, 0, 0, 0, time.UTC)
+	// AllTime is ...
+	AllTime = time.Date(1970, time.January, 0, 0, 0, 0, 0, time.UTC)
+	// FarFuture is ...
 	FarFuture = time.Date(2037, time.January, 0, 0, 0, 0, 0, time.UTC)
 )
 

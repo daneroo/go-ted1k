@@ -7,6 +7,7 @@ import (
 	"github.com/daneroo/go-ted1k/types"
 )
 
+// Writer is ...
 type Writer struct {
 }
 

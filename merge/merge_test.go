@@ -10,7 +10,7 @@ import (
 
 func TestMergeTypeString(t *testing.T) {
 	var data = []struct {
-		m MergeType
+		m Type
 		s string // expected
 	}{
 		{
