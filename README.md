@@ -15,6 +15,23 @@
 - find best writeBatchSize in mysql writer 1k...32k : currently 10k
 - mv flux,ignore,jsonl,mysql to store/
 
+## Operations
+
+
+```bash
+# Start backing services
+docker-compose up -d
+
+# restore a mysqldump snapshot to mysql (see MYSQL.env)
+./restore-db.sh
+
+# unit tests
+go test -v ./...
+
+# run the pump
+go run cmd/pump/pump.go
+```
+
 ## Postgres
 
 ```sql
@@ -44,16 +61,6 @@ I should implement my own select .. into (in go), using table names as in mysql
 select mean(value)*24/1000 into kwh_1d from watt where time > '2015-09-01' group by time(1d)
 ```
 
-## Docker
-
-We have abandoned data volumes for now.
-`docker-compose` command brings up MySQL, InfluxDB and Grafana instances, and the `restore-db.sh` script restores a MySQL snapshot/
-
-```bash
-docker-compose up -d
-./restore-db.sh
-```
-
 ## Timing of MySQL reads
 
 For timing of MySQL selects with maxCount results
@@ -71,15 +78,6 @@ From Godel to local docker:
   3600*24: 294s,290s  (Read-only) Now 412s,405s, with IgnoreAll
   10000: --s  (Batch Writes)
 ```
-
-## MySQL inserts are ridiculously slow
-
-This is what we did to speed things up:
-(all time measured on dirac/docker)
-
-- Initial naive approach: 550 ins/s
-- Prepared statements: 650 ins/s
-- Transactions: 2500-3000 ins/s (depending on size of batch...)
 
 ## Historical aggregation
 
