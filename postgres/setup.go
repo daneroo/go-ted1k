@@ -18,15 +18,14 @@ func Setup(ctx context.Context, tableNames []string, credentials string) *pgx.Co
 	log.Println("Connected to Postgres")
 
 	for _, tableName := range tableNames {
-		createCopyTable(ctx, conn, tableName)
+		createTable(ctx, conn, tableName)
 	}
 	// totalCount(ctx, conn)
 
 	return conn
 }
 
-// TODO(daneroo) rename this ..hyper..
-func createCopyTable(ctx context.Context, conn *pgx.Conn, tableName string) {
+func createTable(ctx context.Context, conn *pgx.Conn, tableName string) {
 	ddlFormat := "CREATE TABLE IF NOT EXISTS %s (stamp TIMESTAMP WITHOUT TIME ZONE NOT NULL PRIMARY KEY,watt integer NOT NULL DEFAULT '0');"
 	ddl := fmt.Sprintf(ddlFormat, tableName)
 	_, err := conn.Exec(ctx, ddl)

@@ -18,14 +18,14 @@ func Setup(tableNames []string, credentials string) *sqlx.DB {
 	log.Println("Connected to MySQL")
 
 	for _, tableName := range tableNames {
-		createCopyTable(db, tableName)
+		createTable(db, tableName)
 	}
-	totalCount(db)
+	// totalCount(db)
 
 	return db
 }
 
-func createCopyTable(db *sqlx.DB, tableName string) {
+func createTable(db *sqlx.DB, tableName string) {
 	ddlFormat := "CREATE TABLE IF NOT EXISTS %s ( stamp datetime NOT NULL DEFAULT '1970-01-01 00:00:00', watt int(11) NOT NULL DEFAULT '0',  PRIMARY KEY (`stamp`) )  ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;"
 	ddl := fmt.Sprintf(ddlFormat, tableName)
 	_, err := db.Exec(ddl)
@@ -35,6 +35,7 @@ func createCopyTable(db *sqlx.DB, tableName string) {
 	}
 }
 
+// pass tablename as parameter
 func totalCount(db *sqlx.DB) {
 	var totalCount int
 	err := db.Get(&totalCount, "SELECT COUNT(*) FROM watt")

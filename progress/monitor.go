@@ -1,4 +1,4 @@
-package ephemeral
+package progress
 
 import (
 	"fmt"
@@ -8,7 +8,17 @@ import (
 	"github.com/daneroo/go-ted1k/types"
 )
 
-const monitorBatch = 1e7
+const (
+	// BatchByDay is an approximate count of samples per day
+	// BatchByDay = 3600 * 24
+	monitorBatch = 1e7
+)
+
+// TODO(daneroo) create a constructor with options
+// // Monitor represents a tracking channel monitor
+// type Monitor struct {
+// 	Batch int
+// }
 
 // Monitor creates a passthrough channel of Entry, which is monitored
 // TODO(daneroo): add configuration and state (receiver), with Name and break behaviour
