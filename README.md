@@ -1,19 +1,21 @@
-# Ted1k with Go
+# Ted1k with Go - data pump
 
 ## TODO
 
 - Bring back Evernote TODO to here...
+- Write is symchronous, should return (count,error)
+- Mysql->Mysql2 is broken - NOT - Make CopyFromTo(in,out)
 - channels of slices `chan []types.Entry`
   - Extract slice manipulation
   - verfy and **merge** - for faster inserts
+- flux (at least write) <https://github.com/influxdata/influxdb-client-go#writes>
+- ipfs
 - off-by-one error in gaps? add tests
   - progress.Gaps: 2020-05-15T23:59:59Z 2020-05-17T00:00:00Z : 24h0m1s
 - e2e testing (with ephemeral source) in docker-compose
 - progress on nats - with client
 - Gather performance/integrity and history in markdown (PERFORMANCE.md)
 - [See Evernote](https://www.evernote.com/shard/s60/nl/1773032759/ae1b9921-7e85-4b75-a21b-86be7d524295/)
-
-- mv flux,ignore,jsonl,mysql to store/
 
 ## Operations
 

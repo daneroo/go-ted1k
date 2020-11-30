@@ -96,8 +96,10 @@ func main() {
 	// gaps(mysql.NewReader(db, tableNames[0]).Read())
 
 	// log.Println("-= ephemeral -> mysql -> mysql.watt2")
-	mysql.NewWriter(db, tableNames[0]).Write(progress.Monitor("ephemeral->mysql", ephemeral.NewReader().Read()))
-	mysql.NewWriter(db, tableNames[0]).Write(progress.Monitor("mysql->mysql.watt2", mysql.NewReader(db, tableNames[1]).Read()))
+	// mysql.NewWriter(db, tableNames[0]).Write(progress.Monitor("ephemeral->mysql", ephemeral.NewReader().Read()))
+	// mysql.NewWriter(db, tableNames[1]).Write(progress.Monitor("ephemeral->mysql2", ephemeral.NewReader().Read()))
+	mysql.NewWriter(db, tableNames[1]).Write(progress.Monitor("mysql->mysql2", mysql.NewReader(db, tableNames[0]).Read()))
+	verify("mysql<->mysql", mysql.NewReader(db, tableNames[0]).Read(), mysql.NewReader(db, tableNames[1]).Read())
 
 	//  ** Mysql -> Mysql
 	// 137k/s (~200M entries , SSD, empty destination) - dirac rate ~ 34k/s count: 223M
@@ -127,10 +129,3 @@ func verify(name string, a, b <-chan []types.Entry) {
 func gaps(in <-chan []types.Entry) {
 	ephemeral.NewWriter().Write(progress.Gaps(in))
 }
-
-// func pipeToFlux(in <-chan types.Entry) {
-// 	fluxWriter := flux.DefaultWriter()
-// 	// log.Printf("flux.Writer: %v", fluxWriter)
-// 	monitor := &progress.Monitor{Batch: progress.BatchByDay}
-// 	fluxWriter.Write(monitor.Monitor(in))
-// }
