@@ -1,9 +1,6 @@
 package ephemeral
 
 import (
-	"time"
-
-	"github.com/daneroo/go-ted1k/timer"
 	"github.com/daneroo/go-ted1k/types"
 )
 
@@ -16,14 +13,13 @@ func NewWriter() *Writer {
 	return &Writer{}
 }
 
-// Write creates an Entry channel
-func (w *Writer) Write(src <-chan []types.Entry) {
-	start := time.Now()
+// Write consumes an Entry channel - returns (count,error)
+func (w *Writer) Write(src <-chan []types.Entry) (int, error) {
 	count := 0
 	for slice := range src {
 		for range slice { // index,entry
 			count++
 		}
 	}
-	timer.Track(start, "ephemeral.Write", count)
+	return count, nil
 }

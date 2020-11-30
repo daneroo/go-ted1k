@@ -4,9 +4,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
-	"time"
 
-	"github.com/daneroo/go-ted1k/timer"
 	"github.com/daneroo/go-ted1k/types"
 
 	// register mysql driver
@@ -43,8 +41,8 @@ func (w *Writer) Close() {
 	w.prepStmts = make(map[string]*sqlx.Stmt)
 }
 
-func (w *Writer) Write(src <-chan []types.Entry) {
-	start := time.Now()
+// Write consumes an Entry channel - returns (count,error)
+func (w *Writer) Write(src <-chan []types.Entry) (int, error) {
 	count := 0
 	entries := make([]types.Entry, 0, writeBatchSize)
 
@@ -63,7 +61,7 @@ func (w *Writer) Write(src <-chan []types.Entry) {
 	}
 	// last flush
 	w.flush(entries)
-	timer.Track(start, "mysql.Write", count)
+	return count, nil
 }
 
 // perform the actual batch insert
@@ -82,7 +80,6 @@ func (w *Writer) flush(entries []types.Entry) {
 
 	stmt := w.makeStmt(sql)
 	stmt.MustExec(vals...)
-	// log.Printf("res: %v", res)
 }
 
 func (w *Writer) makeStmt(sql string) *sqlx.Stmt {

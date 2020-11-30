@@ -3,7 +3,6 @@ package ephemeral
 import (
 	"time"
 
-	"github.com/daneroo/go-ted1k/timer"
 	"github.com/daneroo/go-ted1k/types"
 )
 
@@ -37,7 +36,6 @@ func (r *Reader) Read() <-chan []types.Entry {
 	src := make(chan []types.Entry)
 
 	go func(r *Reader) {
-		start := time.Now()
 		slice := make([]types.Entry, 0, r.Batch)
 
 		totalCount := 0
@@ -63,7 +61,6 @@ func (r *Reader) Read() <-chan []types.Entry {
 		src <- slice
 		// close the channel
 		close(src)
-		timer.Track(start, "ephemeral.Read", totalCount)
 	}(r)
 
 	return src

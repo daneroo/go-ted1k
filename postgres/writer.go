@@ -5,9 +5,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
-	"time"
 
-	"github.com/daneroo/go-ted1k/timer"
 	"github.com/daneroo/go-ted1k/types"
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgx/v4"
@@ -36,8 +34,8 @@ func NewWriter(conn *pgx.Conn, tableName string) *Writer {
 	}
 }
 
-func (w *Writer) Write(src <-chan []types.Entry) {
-	start := time.Now()
+// Write consumes an Entry channel - returns (count,error)
+func (w *Writer) Write(src <-chan []types.Entry) (int, error) {
 	count := 0
 	entries := make([]types.Entry, 0, writeBatchSize)
 
@@ -56,7 +54,7 @@ func (w *Writer) Write(src <-chan []types.Entry) {
 	}
 	// last flush
 	w.flush(entries)
-	timer.Track(start, "postgres.Write", count)
+	return count, nil
 }
 
 // perform the actual batch insert
@@ -97,9 +95,10 @@ func (w *Writer) writeWithCopyFrom(entries []types.Entry) {
 		log.Printf("Unable to insert (copyFrom): %v\n", err)
 
 	}
-	if copyCount != writeBatchSize {
-		log.Printf("writeWithCopyFrom inserted %d rows\n", copyCount)
-	}
+	// log last flush...
+	// if copyCount != writeBatchSize {
+	// 	log.Printf("writeWithCopyFrom inserted %d rows\n", copyCount)
+	// }
 }
 
 func (w *Writer) writeWithMultipleInsert(entries []types.Entry) {

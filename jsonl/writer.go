@@ -2,9 +2,7 @@ package jsonl
 
 import (
 	"log"
-	"time"
 
-	"github.com/daneroo/go-ted1k/timer"
 	"github.com/daneroo/go-ted1k/types"
 	"github.com/daneroo/go-ted1k/util"
 	"github.com/daneroo/timewalker"
@@ -26,11 +24,9 @@ func NewWriter() *Writer {
 	}
 }
 
-// Consume the types.Entry (receive only) channel
+// Write consumes an Entry channel - returns (count,error)
 // preforming batched writes (of size writeBatchSize)
-// Also performs progress logging (and timing)
-func (w *Writer) Write(src <-chan []types.Entry) {
-	start := time.Now()
+func (w *Writer) Write(src <-chan []types.Entry) (int, error) {
 	count := 0
 
 	for slice := range src {
@@ -44,7 +40,7 @@ func (w *Writer) Write(src <-chan []types.Entry) {
 		}
 	}
 	w.close()
-	timer.Track(start, "jsonl.Write", count)
+	return count, nil
 }
 
 func (w *Writer) close() {

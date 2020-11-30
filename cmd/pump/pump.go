@@ -30,6 +30,18 @@ func (writer logWriter) Write(bytes []byte) (int, error) {
 	return fmt.Print(time.Now().UTC().Format(fmtRFC3339Millis) + " - " + string(bytes))
 }
 
+type entryWriter interface {
+	Write(src <-chan []types.Entry) (int, error)
+}
+type entryReader interface {
+	Read() <-chan []types.Entry
+}
+
+func doTest(name string, r entryReader, w entryWriter) (int, error) {
+	log.Printf("-=- %s\n", name)
+	return w.Write(progress.Monitor(name, r.Read()))
+}
+
 func main() {
 	log.SetFlags(0)
 	log.SetOutput(new(logWriter))
@@ -41,36 +53,37 @@ func main() {
 	conn := postgres.Setup(context.Background(), tableNames, pgCredentials)
 	defer conn.Close(context.Background())
 
+	doTest("ephemeral -> ephemeral", ephemeral.NewReader(), ephemeral.NewWriter())
+	doTest("ephemeral -> ephemeral", ephemeral.NewReader(), ephemeral.NewWriter())
+	doTest("ephemeral -> jsonl", ephemeral.NewReader(), jsonl.NewWriter())
+	doTest("ephemeral -> postgres", ephemeral.NewReader(), postgres.NewWriter(conn, tableNames[0]))
+	doTest("ephemeral -> mysql", ephemeral.NewReader(), mysql.NewWriter(db, tableNames[0]))
+
 	if false {
-		time.Sleep(100 * time.Millisecond)
-		log.Println("-= ephemeral -> ephemeral")
+		log.Println("-=- ephemeral -> ephemeral")
 		ephemeral.NewWriter().Write(progress.Monitor("ephemeral->ephemeral", ephemeral.NewReader().Read()))
 
 		time.Sleep(100 * time.Millisecond)
 		log.Println("-= ephemeral -> jsonl")
 		jsonl.NewWriter().Write(progress.Monitor("ephemeral->jsonl", ephemeral.NewReader().Read()))
 
-		time.Sleep(100 * time.Millisecond)
 		log.Println("-= jsonl -> ephemeral")
 		ephemeral.NewWriter().Write(progress.Monitor("jsonl -> ephemeral", jsonl.NewReader().Read()))
 
-		time.Sleep(100 * time.Millisecond)
 		log.Println("-= ephemeral -> postgres")
 		postgres.NewWriter(conn, tableNames[0]).Write(progress.Monitor("ephemeral->postgres", ephemeral.NewReader().Read()))
 		// postgres.NewWriter(conn, tableNames[0]).Write(progress.Monitor("ephemeral->postgres(2)", ephemeral.NewReader().Read()))
 
-		time.Sleep(100 * time.Millisecond)
-		log.Println("-= postgres -> ephemeral")
-		ephemeral.NewWriter().Write(progress.Monitor("postgres -> ephemeral", postgres.NewReader(conn, tableNames[0]).Read()))
+		// log.Println("-= postgres -> ephemeral")
+		// ephemeral.NewWriter().Write(progress.Monitor("postgres -> ephemeral", postgres.NewReader(conn, tableNames[0]).Read()))
 
-		time.Sleep(100 * time.Millisecond)
-		log.Println("-= jsonl -> postgres")
-		postgres.NewWriter(conn, tableNames[0]).Write(progress.Monitor("jsonl->postgres", jsonl.NewReader().Read()))
+		// log.Println("-= jsonl -> postgres")
+		// postgres.NewWriter(conn, tableNames[0]).Write(progress.Monitor("jsonl->postgres", jsonl.NewReader().Read()))
 
-		verify("ephemeral<->ephemeral", ephemeral.NewReader().Read(), ephemeral.NewReader().Read())
-		verify("jsonl<->ephemeral", jsonl.NewReader().Read(), ephemeral.NewReader().Read())
-		verify("postgres<->ephemeral", postgres.NewReader(conn, tableNames[0]).Read(), ephemeral.NewReader().Read())
-		verify("postgres<->jsonl", postgres.NewReader(conn, tableNames[0]).Read(), jsonl.NewReader().Read())
+		// verify("ephemeral<->ephemeral", ephemeral.NewReader().Read(), ephemeral.NewReader().Read())
+		// verify("jsonl<->ephemeral", jsonl.NewReader().Read(), ephemeral.NewReader().Read())
+		// verify("postgres<->ephemeral", postgres.NewReader(conn, tableNames[0]).Read(), ephemeral.NewReader().Read())
+		// verify("postgres<->jsonl", postgres.NewReader(conn, tableNames[0]).Read(), jsonl.NewReader().Read())
 	}
 
 	if false {
@@ -89,32 +102,16 @@ func main() {
 		ephemeral.NewWriter().Write(progress.Monitor("mysql -> ephemeral", mysql.NewReader(db, tableNames[0]).Read()))
 
 		verify("mysql<->ephemeral", mysql.NewReader(db, tableNames[0]).Read(), ephemeral.NewReader().Read())
+		// log.Println("-= ephemeral -> mysql2")
+		// mysql.NewWriter(db, tableNames[1]).Write(progress.Monitor("ephemeral->mysql2", ephemeral.NewReader().Read()))
+		// log.Println("-= mysql -> mysql2")
+		// mysql.NewWriter(db, tableNames[1]).Write(progress.Monitor("mysql->mysql2", mysql.NewReader(db, tableNames[0]).Read()))
+		// verify("mysql<->mysql", mysql.NewReader(db, tableNames[0]).Read(), mysql.NewReader(db, tableNames[1]).Read())
 	}
-
-	// verify("mysql<->ephemeral", mysql.NewReader(db, tableNames[0]).Read(), ephemeral.NewReader().Read())
-	// gaps(ephemeral.NewReader().Read())
-	// gaps(mysql.NewReader(db, tableNames[0]).Read())
-
-	// log.Println("-= ephemeral -> mysql -> mysql.watt2")
-	// mysql.NewWriter(db, tableNames[0]).Write(progress.Monitor("ephemeral->mysql", ephemeral.NewReader().Read()))
-	// mysql.NewWriter(db, tableNames[1]).Write(progress.Monitor("ephemeral->mysql2", ephemeral.NewReader().Read()))
-	mysql.NewWriter(db, tableNames[1]).Write(progress.Monitor("mysql->mysql2", mysql.NewReader(db, tableNames[0]).Read()))
-	verify("mysql<->mysql", mysql.NewReader(db, tableNames[0]).Read(), mysql.NewReader(db, tableNames[1]).Read())
-
-	//  ** Mysql -> Mysql
-	// 137k/s (~200M entries , SSD, empty destination) - dirac rate ~ 34k/s count: 223M
-	// 24k/s (~200M entries , SSD, full destination) - dirac rate ~ 13k/s count: 86M too slow stopped
-	// pipeToMysql(fromMysql(db), "watt2", db)
 
 	//  ** Mysql -> Flux
 	// 116k/s (~200M entries , SSD, empty or full)
 	// pipeToFlux(fromMysql(db))
-
-	// 197k/s (~200M entries , SSD) - dirac rate ~ 102/s count: 223M
-	// {
-	// 	monitor := &progress.Monitor{Batch: progress.BatchByDay}
-	// 	verify(fromJsonl(), monitor.Monitor(fromMysql(db)))
-	// }
 
 }
 
