@@ -26,6 +26,14 @@ type Writer struct {
 	prepStmts map[string]*sqlx.Stmt // TODO(daneroo): these need to be closed..
 }
 
+// NewWriter is a constructor for the Writer struct
+func NewWriter(db *sqlx.DB, tableName string) *Writer {
+	return &Writer{
+		DB:        db,
+		TableName: tableName,
+	}
+}
+
 // Close frees prepared Statements
 func (w *Writer) Close() {
 	for _, stmt := range w.prepStmts {
@@ -35,21 +43,23 @@ func (w *Writer) Close() {
 	w.prepStmts = make(map[string]*sqlx.Stmt)
 }
 
-func (w *Writer) Write(src <-chan types.Entry) {
+func (w *Writer) Write(src <-chan []types.Entry) {
 	start := time.Now()
 	count := 0
 	entries := make([]types.Entry, 0, writeBatchSize)
 
-	for entry := range src {
+	for slice := range src {
+		for _, entry := range slice {
 
-		entries = append(entries, entry)
+			entries = append(entries, entry)
 
-		count++
-		if (len(entries) % writeBatchSize) == 0 {
-			w.flush(entries)
-			entries = make([]types.Entry, 0, writeBatchSize)
+			count++
+			if (len(entries) % writeBatchSize) == 0 {
+				w.flush(entries)
+				entries = make([]types.Entry, 0, writeBatchSize)
+			}
+
 		}
-
 	}
 	// last flush
 	w.flush(entries)

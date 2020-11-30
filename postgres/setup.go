@@ -34,8 +34,6 @@ func createCopyTable(ctx context.Context, conn *pgx.Conn, tableName string) {
 		log.Println(err)
 		panic(err)
 	}
-	log.Println(ddl)
-
 	// sqlCreateHyperFormat := "SELECT create_hypertable('%s', 'stamp')"
 	// sqlCreateHyper := fmt.Sprintf(sqlCreateHyperFormat, tableName)
 	// log.Println(sqlCreateHyper)

@@ -8,7 +8,6 @@ import (
 	"github.com/daneroo/go-ted1k/timer"
 	"github.com/daneroo/go-ted1k/types"
 	"github.com/daneroo/go-ted1k/util"
-	"github.com/go-sql-driver/mysql"
 	"github.com/jackc/pgx/v4"
 )
 
@@ -32,22 +31,24 @@ var (
 	FarFuture = time.Date(2037, time.January, 0, 0, 0, 0, 0, time.UTC)
 )
 
-// Reader needs a NewContructor()...
+// Reader needs a NewContructor()...is ...
 type Reader struct {
 	Conn      *pgx.Conn
 	TableName string
-	Epoch     time.Time
+	// Epoch is the timestamp from which we start reading
+	Epoch time.Time
 	// MaxRows is the max number rows readb from database per query (LIMIT)
 	MaxRows int
 	// Batch is the capacity of a single slice []types.Entry
 	Batch int
-	// this state is shared to preserve split of Read(),readOneFile()
+	// this state is shared to preserve split of Read(),readRows()
 	src   chan []types.Entry
 	slice []types.Entry
 }
 
 const (
-	channelCapacity = 2 // this is now a channel of slices
+	channelCapacity      = 3 // this is now a channel of slices
+	defaultSliceCapacity = 1000
 )
 
 // NewReader is a constructor for the Reader struct
@@ -57,6 +58,7 @@ func NewReader(conn *pgx.Conn, tableName string) *Reader {
 		TableName: tableName,
 		Epoch:     AllTime,
 		MaxRows:   AboutADay,
+		Batch:     defaultSliceCapacity,
 	}
 }
 
@@ -112,24 +114,20 @@ func (r *Reader) readRows(startTime time.Time) (time.Time, int) {
 	count := 0
 	var lastStamp time.Time
 	for rows.Next() {
-		var stamp mysql.NullTime
+		var stamp time.Time
 		var watt int
 
 		err = rows.Scan(&stamp, &watt)
 		util.Checkerr(err)
 
-		// count even null stamp rows (which should never happen)
 		count++
-		if stamp.Valid {
-			lastStamp = stamp.Time
-			// src <- types.Entry{Stamp: stamp.Time, Watt: watt}
-			entry := types.Entry{Stamp: stamp.Time, Watt: watt}
-			r.slice = append(r.slice, entry)
-			if len(r.slice) == cap(r.slice) {
-				r.src <- r.slice
-				r.slice = make([]types.Entry, 0, r.Batch)
-			}
-
+		lastStamp = stamp
+		entry := types.Entry{Stamp: stamp, Watt: watt}
+		r.slice = append(r.slice, entry)
+		if len(r.slice) == cap(r.slice) {
+			// log.Printf("new batch for slice len: %d cap: %d", len(r.slice), cap(r.slice))
+			r.src <- r.slice
+			r.slice = make([]types.Entry, 0, r.Batch)
 		}
 	}
 	// TODO(daneroo) error handling

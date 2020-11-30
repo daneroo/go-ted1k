@@ -24,8 +24,12 @@ type Reader struct {
 
 // NewReader is a constructor for the Reader struct
 func NewReader() *Reader {
-	// math.PI * 1e7 ~ 1 year in seconds!
-	return &Reader{Epoch: ThisYear, Batch: 1000, TotalRows: 3.1415926e7}
+	return &Reader{
+		Epoch: ThisYear,
+		Batch: 1000,
+		// math.PI * 1e7 ~ 1 year in seconds!
+		TotalRows: 3.1415926e7,
+	}
 }
 
 // Read() creates and returns a channel of []types.Entry

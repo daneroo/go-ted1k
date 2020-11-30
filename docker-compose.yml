@@ -5,20 +5,20 @@ version: "3.8"
 #   mysql-volume:
 
 services:
-  # mysql:
-  #   # image: mysql:5.7
-  #   image: mysql:8.0
-  #   # volumes:
-  #   #   # Just specify a path and let the Engine create a volume
-  #   #   # - /var/lib/mysql
-  #   #   # use a relative host path
-  #   #   # - ./data/mysql:/var/lib/mysql
-  #   #   # Use a defined volume
-  #   #   - mysql-volume:/var/lib/mysql
-  #   env_file:
-  #     - ./MYSQL.env
-  #   ports:
-  #     - 3306:3306 # not exposed in prod ?
+  mysql:
+    # image: mysql:5.7
+    image: mysql:8.0
+    # volumes:
+    #   # Just specify a path and let the Engine create a volume
+    #   # - /var/lib/mysql
+    #   # use a relative host path
+    #   # - ./data/mysql:/var/lib/mysql
+    #   # Use a defined volume
+    #   - mysql-volume:/var/lib/mysql
+    env_file:
+      - ./MYSQL.env
+    ports:
+      - 3306:3306 # not exposed in prod ?
 
   # docker run -d --name timescaledb -p 5432:5432 -e POSTGRES_PASSWORD=password timescale/timescaledb:1.7.4-pg12
   timescale:
