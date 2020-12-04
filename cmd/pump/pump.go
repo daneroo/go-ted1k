@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/daneroo/go-ted1k/ephemeral"
+	"github.com/daneroo/go-ted1k/ipfs"
 	"github.com/daneroo/go-ted1k/jsonl"
 	"github.com/daneroo/go-ted1k/merge"
 	"github.com/daneroo/go-ted1k/mysql"
@@ -14,6 +15,7 @@ import (
 	"github.com/daneroo/go-ted1k/progress"
 	"github.com/daneroo/go-ted1k/types"
 	_ "github.com/go-sql-driver/mysql"
+	shell "github.com/ipfs/go-ipfs-api"
 )
 
 const (
@@ -52,20 +54,30 @@ func main() {
 	defer db.Close()
 	conn := postgres.Setup(context.Background(), tableNames, pgCredentials)
 	defer conn.Close(context.Background())
-
-	doTest("ephemeral -> ephemeral", ephemeral.NewReader(), ephemeral.NewWriter())
-	doTest("ephemeral -> ephemeral", ephemeral.NewReader(), ephemeral.NewWriter())
-	doTest("ephemeral -> jsonl", ephemeral.NewReader(), jsonl.NewWriter())
-	doTest("ephemeral -> postgres", ephemeral.NewReader(), postgres.NewWriter(conn, tableNames[0]))
-	doTest("ephemeral -> mysql", ephemeral.NewReader(), mysql.NewWriter(db, tableNames[0]))
+	sh := shell.NewShell("localhost:5001")
 
 	if false {
-		log.Println("-=- ephemeral -> ephemeral")
-		ephemeral.NewWriter().Write(progress.Monitor("ephemeral->ephemeral", ephemeral.NewReader().Read()))
+		doTest("ephemeral -> ephemeral", ephemeral.NewReader(), ephemeral.NewWriter())
+		verify("ephemeral<->ephemeral", ephemeral.NewReader().Read(), ephemeral.NewReader().Read())
+	}
 
-		time.Sleep(100 * time.Millisecond)
-		log.Println("-= ephemeral -> jsonl")
-		jsonl.NewWriter().Write(progress.Monitor("ephemeral->jsonl", ephemeral.NewReader().Read()))
+	if false {
+		doTest("ephemeral -> jsonl", ephemeral.NewReader(), jsonl.NewWriter())
+		doTest("jsonl -> ephemeral", jsonl.NewReader(), ephemeral.NewWriter())
+		// verify("ephemeral<->jsonl", ephemeral.NewReader().Read(), jsonl.NewReader().Read())
+	}
+
+	if true {
+		iw := ipfs.NewWriter(sh)
+		doTest("ephemeral -> ipfs", ephemeral.NewReader(), iw)
+		log.Printf("Pinned: %s\n", iw.Dw.Dir)
+		// doTest("ipfs -> ephemeral", ipfs.NewReader(), ephemeral.NewWriter())
+		// verify("ephemeral<->ipfs", ephemeral.NewReader().Read(), ipfs.NewReader().Read())
+	}
+	// doTest("ephemeral -> postgres", ephemeral.NewReader(), postgres.NewWriter(conn, tableNames[0]))
+	// doTest("ephemeral -> mysql", ephemeral.NewReader(), mysql.NewWriter(db, tableNames[0]))
+
+	if false {
 
 		log.Println("-= jsonl -> ephemeral")
 		ephemeral.NewWriter().Write(progress.Monitor("jsonl -> ephemeral", jsonl.NewReader().Read()))

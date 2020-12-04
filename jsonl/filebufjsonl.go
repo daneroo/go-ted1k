@@ -7,6 +7,9 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"time"
+
+	"github.com/daneroo/go-ted1k/types"
 )
 
 // FBJE File Buffered JSon Encoder
@@ -31,6 +34,7 @@ func (fbje *FBJE) Open(fileName string) error {
 	fbje.file = file
 	// TODO(daneroo): should this be bigger? bufio.NewWriterSize
 	fbje.bufw = bufio.NewWriter(fbje.file) // default size 4k
+	// fbje.bufw = bufio.NewWriterSize(fbje.file, 65536) // default size 4k
 	fbje.enc = json.NewEncoder(fbje.bufw)
 	fbje.isOpen = true
 
@@ -43,7 +47,12 @@ func (fbje *FBJE) Encode(v interface{}) error {
 		err := fmt.Errorf("FBJE: Encoder is not open")
 		return err
 	}
-	return fbje.enc.Encode(v)
+	//
+	// return fbje.enc.Encode(v)
+	// This is faster: 1.1M/s vs 670k/s for both Day and Month Grain,
+	entry := v.(*types.Entry)
+	_, err := fmt.Fprintf(fbje.bufw, "{\"stamp\":\"%s\",\"watt\":%d}\n", entry.Stamp.Format(time.RFC3339Nano), entry.Watt)
+	return err
 }
 
 // Close is ...
