@@ -4,9 +4,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"os"
-	"time"
 
-	"github.com/daneroo/go-ted1k/timer"
 	"github.com/daneroo/go-ted1k/types"
 	"github.com/daneroo/go-ted1k/util"
 	"github.com/daneroo/timewalker"
@@ -44,7 +42,7 @@ func (r *Reader) Read() <-chan []types.Entry {
 	r.src = make(chan []types.Entry, channelCapacity)
 
 	go func(r *Reader) {
-		start := time.Now()
+		// start := time.Now()
 		r.slice = make([]types.Entry, 0, r.Batch)
 
 		// get the files
@@ -54,7 +52,6 @@ func (r *Reader) Read() <-chan []types.Entry {
 		totalCount := 0
 
 		for _, filename := range filenames {
-			// log.Printf("-jsonl.Read: %s : %s", r.Grain, filename)
 			count := r.readOneFile(filename)
 			totalCount += count
 		}
@@ -65,7 +62,7 @@ func (r *Reader) Read() <-chan []types.Entry {
 		// close the channel
 		close(r.src)
 		r.src = nil
-		timer.Track(start, "jsonl.Read", totalCount)
+		// timer.Track(start, "jsonl.Read", totalCount)
 	}(r)
 
 	return r.src

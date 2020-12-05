@@ -39,11 +39,6 @@ type entryReader interface {
 	Read() <-chan []types.Entry
 }
 
-func doTest(name string, r entryReader, w entryWriter) (int, error) {
-	log.Printf("-=- %s\n", name)
-	return w.Write(progress.Monitor(name, r.Read()))
-}
-
 func main() {
 	log.SetFlags(0)
 	log.SetOutput(new(logWriter))
@@ -56,71 +51,46 @@ func main() {
 	defer conn.Close(context.Background())
 	sh := shell.NewShell("localhost:5001")
 
-	if false {
+	// ephemeral
+	if true {
+		fmt.Println()
 		doTest("ephemeral -> ephemeral", ephemeral.NewReader(), ephemeral.NewWriter())
-		verify("ephemeral<->ephemeral", ephemeral.NewReader().Read(), ephemeral.NewReader().Read())
+		verify("ephemeral <-> ephemeral", ephemeral.NewReader(), ephemeral.NewReader())
 	}
 
-	if false {
+	// jsonl
+	if true {
+		fmt.Println()
 		doTest("ephemeral -> jsonl", ephemeral.NewReader(), jsonl.NewWriter())
 		doTest("jsonl -> ephemeral", jsonl.NewReader(), ephemeral.NewWriter())
-		// verify("ephemeral<->jsonl", ephemeral.NewReader().Read(), jsonl.NewReader().Read())
+		verify("ephemeral<->jsonl", ephemeral.NewReader(), jsonl.NewReader())
 	}
 
+	// ipfs
 	if true {
+		fmt.Println()
 		iw := ipfs.NewWriter(sh)
 		doTest("ephemeral -> ipfs", ephemeral.NewReader(), iw)
 		dirCid := iw.Dw.Dir
 		// dirCid := "QmYEZzGXRwzWArokCyEqpJnLrbp3F2WEUY46huWtu6TqL6"
-		log.Printf("Pinned: %s\n", dirCid)
 		doTest("ipfs -> ephemeral", ipfs.NewReader(sh, dirCid), ephemeral.NewWriter())
-		verify("ephemeral<->ipfs", ephemeral.NewReader().Read(), ipfs.NewReader(sh, dirCid).Read())
-	}
-	// doTest("ephemeral -> postgres", ephemeral.NewReader(), postgres.NewWriter(conn, tableNames[0]))
-	// doTest("ephemeral -> mysql", ephemeral.NewReader(), mysql.NewWriter(db, tableNames[0]))
-
-	if false {
-
-		log.Println("-= jsonl -> ephemeral")
-		ephemeral.NewWriter().Write(progress.Monitor("jsonl -> ephemeral", jsonl.NewReader().Read()))
-
-		log.Println("-= ephemeral -> postgres")
-		postgres.NewWriter(conn, tableNames[0]).Write(progress.Monitor("ephemeral->postgres", ephemeral.NewReader().Read()))
-		// postgres.NewWriter(conn, tableNames[0]).Write(progress.Monitor("ephemeral->postgres(2)", ephemeral.NewReader().Read()))
-
-		// log.Println("-= postgres -> ephemeral")
-		// ephemeral.NewWriter().Write(progress.Monitor("postgres -> ephemeral", postgres.NewReader(conn, tableNames[0]).Read()))
-
-		// log.Println("-= jsonl -> postgres")
-		// postgres.NewWriter(conn, tableNames[0]).Write(progress.Monitor("jsonl->postgres", jsonl.NewReader().Read()))
-
-		// verify("ephemeral<->ephemeral", ephemeral.NewReader().Read(), ephemeral.NewReader().Read())
-		// verify("jsonl<->ephemeral", jsonl.NewReader().Read(), ephemeral.NewReader().Read())
-		// verify("postgres<->ephemeral", postgres.NewReader(conn, tableNames[0]).Read(), ephemeral.NewReader().Read())
-		// verify("postgres<->jsonl", postgres.NewReader(conn, tableNames[0]).Read(), jsonl.NewReader().Read())
+		verify("ephemeral <-> ipfs", ephemeral.NewReader(), ipfs.NewReader(sh, dirCid))
 	}
 
-	if false {
+	// postgres
+	if true {
+		fmt.Println()
+		doTest("ephemeral -> postgres", ephemeral.NewReader(), postgres.NewWriter(conn, tableNames[0]))
+		doTest("postgres -> ephemeral", postgres.NewReader(conn, tableNames[0]), ephemeral.NewWriter())
+		verify("ephemeral <-> postgres", ephemeral.NewReader(), postgres.NewReader(conn, tableNames[0]))
+	}
 
-		time.Sleep(100 * time.Millisecond)
-		log.Println("-= ephemeral -> mysql")
-		mysql.NewWriter(db, tableNames[0]).Write(progress.Monitor("ephemeral->mysql", ephemeral.NewReader().Read()))
-		mysql.NewWriter(db, tableNames[0]).Write(progress.Monitor("ephemeral->mysql(2)", ephemeral.NewReader().Read()))
-
-		time.Sleep(100 * time.Millisecond)
-		log.Println("-= jsonl -> mysql")
-		mysql.NewWriter(db, tableNames[0]).Write(progress.Monitor("jsonl->mysql", jsonl.NewReader().Read()))
-
-		time.Sleep(100 * time.Millisecond)
-		log.Println("-= mysql -> ephemeral")
-		ephemeral.NewWriter().Write(progress.Monitor("mysql -> ephemeral", mysql.NewReader(db, tableNames[0]).Read()))
-
-		verify("mysql<->ephemeral", mysql.NewReader(db, tableNames[0]).Read(), ephemeral.NewReader().Read())
-		// log.Println("-= ephemeral -> mysql2")
-		// mysql.NewWriter(db, tableNames[1]).Write(progress.Monitor("ephemeral->mysql2", ephemeral.NewReader().Read()))
-		// log.Println("-= mysql -> mysql2")
-		// mysql.NewWriter(db, tableNames[1]).Write(progress.Monitor("mysql->mysql2", mysql.NewReader(db, tableNames[0]).Read()))
-		// verify("mysql<->mysql", mysql.NewReader(db, tableNames[0]).Read(), mysql.NewReader(db, tableNames[1]).Read())
+	// mysql
+	if true {
+		fmt.Println()
+		doTest("ephemeral -> mysql", ephemeral.NewReader(), mysql.NewWriter(db, tableNames[0]))
+		doTest("mysql -> ephemeral", mysql.NewReader(db, tableNames[0]), ephemeral.NewWriter())
+		verify("ephemeral <-> mysql", ephemeral.NewReader(), mysql.NewReader(db, tableNames[0]))
 	}
 
 	//  ** Mysql -> Flux
@@ -129,8 +99,14 @@ func main() {
 
 }
 
-func verify(name string, a, b <-chan []types.Entry) {
-	vv := merge.Verify(a, b)
+func doTest(name string, r entryReader, w entryWriter) (int, error) {
+	log.Printf("-=- %s\n", name)
+	return w.Write(progress.Monitor(name, r.Read()))
+}
+
+func verify(name string, a, b entryReader) {
+	log.Printf("-=- %s\n", name)
+	vv := merge.Verify(a.Read(), progress.Monitor(name, b.Read()))
 	log.Printf("Verified %s:\n", name)
 	for _, v := range vv {
 		log.Println(v)

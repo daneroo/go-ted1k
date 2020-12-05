@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/daneroo/go-ted1k/timer"
 	"github.com/daneroo/go-ted1k/types"
 	"github.com/daneroo/go-ted1k/util"
 	"github.com/jackc/pgx/v4"
@@ -67,7 +66,7 @@ func (r *Reader) Read() <-chan []types.Entry {
 	r.src = make(chan []types.Entry, channelCapacity)
 
 	go func(r *Reader) {
-		start := time.Now()
+		// start := time.Now()
 		r.slice = make([]types.Entry, 0, r.Batch)
 
 		totalCount := 0
@@ -89,7 +88,7 @@ func (r *Reader) Read() <-chan []types.Entry {
 		// close the channel
 		close(r.src)
 		r.src = nil
-		timer.Track(start, "postgres.Read", totalCount)
+		// timer.Track(start, "postgres.Read", totalCount)
 	}(r)
 
 	return r.src

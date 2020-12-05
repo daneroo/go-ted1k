@@ -2,7 +2,7 @@ package ipfs
 
 import (
 	"bufio"
-	"encoding/json"
+	"bytes"
 	"fmt"
 	"io"
 	"log"
@@ -50,12 +50,10 @@ func (w *Writer) Write(src <-chan []types.Entry) (int, error) {
 
 func (w *Writer) writeOneEntry(entry types.Entry) error {
 	w.openFor(entry)
-	_, err := fmt.Fprintf(w.fw.Bufw, "{\"stamp\":\"%s\",\"watt\":%d}\n", entry.Stamp.Format(time.RFC3339Nano), entry.Watt)
-	return err
+	return w.fw.WriteOneEntry(entry)
 }
 
 func (w *Writer) close() {
-	log.Printf("Final close: %s", w.intvl)
 	path := pathFor(w.Grain, w.intvl)
 	cid, _ := w.fw.Close()
 
@@ -63,8 +61,7 @@ func (w *Writer) close() {
 	util.Checkerr(err)
 
 	w.Dw.Close()
-	log.Printf("Final close: %s", w.intvl)
-	log.Printf("Final close: %s", w.Dw.Dir)
+	// log.Printf("Final close: %s %s", w.intvl, w.Dw.Dir)
 }
 
 // Does 4 things; open File, buffer, encoder, Interval
@@ -79,7 +76,7 @@ func (w *Writer) openFor(entry types.Entry) {
 		s := w.Grain.Floor(entry.Stamp)
 		e := w.Grain.AddTo(s)
 		w.intvl = timewalker.Interval{Start: s, End: e}
-		log.Printf("+Initial interval: %s : %s %s", w.Grain, entry.Stamp, w.intvl)
+		// log.Printf("+Initial interval: %s : %s %s", w.Grain, entry.Stamp, w.intvl)
 	}
 
 	// 2- Close before Open - if we are in a new interval
@@ -89,14 +86,14 @@ func (w *Writer) openFor(entry types.Entry) {
 			cid, _ := w.fw.Close()
 			_, err := w.Dw.AddFile(path, cid)
 			util.Checkerr(err)
-			log.Printf("Should close: %s", path)
+			// log.Printf("Should close: %s", path)
 
 			// new interval: for loop
 			s := w.Grain.Floor(entry.Stamp)
 			e := w.Grain.AddTo(s)
 			w.intvl = timewalker.Interval{Start: s, End: e}
-			nupath := pathFor(w.Grain, w.intvl)
-			log.Printf("Should open: %s", nupath)
+			// nupath := pathFor(w.Grain, w.intvl)
+			// log.Printf("Should open: %s", nupath)
 			w.fw = NewFWriter(w.Dw.sh, false) // no pin
 		}
 	}
@@ -114,7 +111,6 @@ func NewDWriter(sh *shell.Shell) *DWriter {
 	if err != nil {
 		log.Fatalf("unable to create ipfs directory (unixfs-dir)")
 	}
-	log.Printf("- building dir: %s\n", dir)
 	return &DWriter{
 		sh:  sh,
 		Dir: dir,
@@ -134,21 +130,20 @@ func (dw *DWriter) AddFile(path, cid string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	log.Printf("+ building dir: %s\n", dir)
 	dw.Dir = dir
 	return dir, nil
 }
 
-// FWriter is ...
+// FWriter is
 type FWriter struct {
-	sh      *shell.Shell   // the ipfs shell
-	isOpen  bool           // just to ensure no double close.
-	w       *io.PipeWriter // where we write the encoded JSON - this is wrapped by the bufw
-	Bufw    *bufio.Writer  // where we write the encoded JSON - this is exposed
-	Enc     *json.Encoder  // a json encoder, which write to the W writer
-	r       *io.PipeReader // the reader that is passed to sh.Add(r)
-	cidChan chan string    // will return the cid from the sh.Add(r) - or nothing
-	errChan chan error     // will receive the error from the sh.Add(r) - or nothing
+	sh         *shell.Shell   // the ipfs shell
+	isOpen     bool           // just to ensure no double close.
+	w          *io.PipeWriter // where we write the encoded JSON - this is wrapped by the bufw
+	Bufw       *bufio.Writer  // where we write the encoded JSON - this is exposed
+	byteBuffer bytes.Buffer
+	r          *io.PipeReader // the reader that is passed to sh.Add(r)
+	cidChan    chan string    // will return the cid from the sh.Add(r) - or nothing
+	errChan    chan error     // will receive the error from the sh.Add(r) - or nothing
 }
 
 // NewFWriter is a FWriter constructor
@@ -158,7 +153,6 @@ func NewFWriter(sh *shell.Shell, pin bool) *FWriter {
 
 	cidChan := make(chan string)
 	errChan := make(chan error)
-	enc := json.NewEncoder(bufw)
 
 	go func() {
 		cid, err := sh.Add(r, shell.Pin(pin))
@@ -179,7 +173,6 @@ func NewFWriter(sh *shell.Shell, pin bool) *FWriter {
 		isOpen:  true,
 		w:       w,
 		Bufw:    bufw,
-		Enc:     enc,
 		r:       r,
 		cidChan: cidChan,
 		errChan: errChan,
@@ -189,6 +182,11 @@ func NewFWriter(sh *shell.Shell, pin bool) *FWriter {
 
 // Close flushes the bufferd writer, closes the w:io.PipeWriter, and waits for cid,err from the spawned reader goroutine
 func (fw *FWriter) Close() (string, error) {
+	fw.Bufw.Write(fw.byteBuffer.Bytes())
+	fw.byteBuffer.Reset()
+
+	fw.Bufw.Flush()
+
 	if err := fw.Bufw.Flush(); err != nil {
 		return "", err
 	}
@@ -204,4 +202,19 @@ func (fw *FWriter) Close() (string, error) {
 		// fmt.Println("received error", err)
 		return "", err
 	}
+}
+
+// WriteOneEntry is ...
+func (fw *FWriter) WriteOneEntry(entry types.Entry) error {
+	s := fmt.Sprintf("{\"stamp\":\"%s\",\"watt\":%d}\n", entry.Stamp.Format(time.RFC3339Nano), entry.Watt)
+	fw.byteBuffer.WriteString(s)
+
+	if fw.byteBuffer.Len() >= 1024*4096 { // max speed 1e5, 1e4 is fine 991k/s vs 1.1M/s
+		// log.Printf("Break the writer: %d bytes\n", fw.byteBuffer.Len())
+		if _, err := fw.Bufw.Write(fw.byteBuffer.Bytes()); err != nil {
+			return err
+		}
+		fw.byteBuffer.Reset()
+	}
+	return nil
 }

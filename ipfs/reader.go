@@ -4,10 +4,8 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
-	"log"
-	"time"
+	"sort"
 
-	"github.com/daneroo/go-ted1k/timer"
 	"github.com/daneroo/go-ted1k/types"
 	"github.com/daneroo/go-ted1k/util"
 	"github.com/daneroo/timewalker"
@@ -48,7 +46,7 @@ func (r *Reader) Read() <-chan []types.Entry {
 	r.src = make(chan []types.Entry, channelCapacity)
 
 	go func(r *Reader) {
-		start := time.Now()
+		// start := time.Now()
 		r.slice = make([]types.Entry, 0, r.Batch)
 
 		// get the files
@@ -58,7 +56,7 @@ func (r *Reader) Read() <-chan []types.Entry {
 		totalCount := 0
 
 		for _, filename := range filenames {
-			log.Printf("Reading %s\n", filename)
+			// log.Printf("Reading %s\n", filename)
 			count := r.readOneFile(filename)
 			totalCount += count
 		}
@@ -69,7 +67,7 @@ func (r *Reader) Read() <-chan []types.Entry {
 		// close the channel
 		close(r.src)
 		r.src = nil
-		timer.Track(start, "jsonl.Read", totalCount)
+		// timer.Track(start, "ipfs.Read", totalCount)
 	}(r)
 
 	return r.src
@@ -79,23 +77,23 @@ func (r *Reader) Read() <-chan []types.Entry {
 // assume flat directory for now
 func (r *Reader) filesIn() ([]string, error) {
 	path := fmt.Sprintf("%s/%s", r.Cid, dirFor(r.Grain))
-	log.Printf("dir: %s\n", path)
 	objects, err := r.sh.FileList(path)
 	if err != nil {
 		return nil, err
 	}
 
-	// Important:We must guarantee file order
 	var filenames []string
-	for idx, link := range objects.Links {
-		log.Printf("Link %d: %+v\n", idx, link)
+	for _, link := range objects.Links {
+		// log.Printf("Link %d: %+v\n", idx, link)
 		if link.Type == "File" { // File or Directory
 			filename := fmt.Sprintf("%s/%s", path, link.Name)
 			filenames = append(filenames, filename)
 		} else {
-			// when we want to recurse
+			// when we want to recurse ...
 		}
 	}
+	// Important: We must guarantee file order
+	sort.Strings(filenames)
 
 	return filenames, nil
 }

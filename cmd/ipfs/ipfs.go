@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"log"
@@ -51,7 +50,7 @@ func main() {
 		// showReader(r, cid)
 	}
 
-	if false {
+	if true {
 		dircid, err := addOneDir(sh)
 		if err != nil {
 			log.Fatalf("error adding directory: %s", err)
@@ -101,7 +100,7 @@ func getOneFile(sh *shell.Shell, cid string) (io.ReadCloser, error) {
 
 func addOneFile(sh *shell.Shell, day int, pin bool) (string, error) {
 	fw := ipfs.NewFWriter(sh, pin)
-	var b bytes.Buffer
+	// var b bytes.Buffer
 
 	stamp := time.Date(2020, time.January, day, 0, 0, 0, 0, time.UTC)
 	start := time.Now()
@@ -109,29 +108,13 @@ func addOneFile(sh *shell.Shell, day int, pin bool) (string, error) {
 	// size := 86400
 	for i := 0; i < length; i++ {
 		entry := types.Entry{Stamp: stamp, Watt: int(stamp.Unix() % 5000)}
-		// fmt.Fprintf(fw.W, "{\"stamp\":\"%s\",\"watt\":%d}\n", entry.Stamp.Format(time.RFC3339Nano), entry.Watt)
-
-		s := fmt.Sprintf("{\"stamp\":\"%s\",\"watt\":%d}\n", entry.Stamp.Format(time.RFC3339Nano), entry.Watt)
-		b.WriteString(s)
-
-		if i%1e5 == 0 { // max speed 1e5, 1e4 is fine 991k/s vs 1.1M/s
-			// log.Printf("Break the writer: %d bytes\n", len(b.Bytes()))
-			fw.Bufw.Write(b.Bytes())
-			b.Reset()
-		}
+		fw.WriteOneEntry(entry)
 
 		stamp = stamp.Add(time.Second)
 	}
 
-	fw.Bufw.Write(b.Bytes())
-	b.Reset()
-	fw.Bufw.Flush()
-	timer.Track(start, "sh.Add", length)
-
-	// r := strings.NewReader(content)
-	// cid, err := sh.Add(r, shell.Pin(pin))
 	cid, err := fw.Close()
-	log.Printf("Added content(%d): %s\n", length, cid)
+	timer.Track(start, fmt.Sprintf("sh.Add(%s)", cid), length)
 	return cid, err
 }
 

@@ -3,13 +3,13 @@
 ## TODO
 
 - Bring back Evernote TODO to here...
-- ipfs
-  - better speed - try go-ipfs core 
-  - Powergate / Filecoin - <https://blog.textile.io/hosted-powergate/>
+- json streaming parsing
 - channels of slices `chan []types.Entry`
   - Extract slice manipulation
   - Fix/Remove : unwrapSliceChannel speed
   - verfy and **merge** - for faster inserts
+- ipfs
+  - Powergate / Filecoin - <https://blog.textile.io/hosted-powergate/>
 - flux (at least write) <https://github.com/influxdata/influxdb-client-go#writes>
 - off-by-one error in gaps? add tests
   - progress.Gaps: 2020-05-15T23:59:59Z 2020-05-17T00:00:00Z : 24h0m1s

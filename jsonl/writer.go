@@ -1,8 +1,6 @@
 package jsonl
 
 import (
-	"log"
-
 	"github.com/daneroo/go-ted1k/types"
 	"github.com/daneroo/go-ted1k/util"
 	"github.com/daneroo/timewalker"
@@ -54,7 +52,7 @@ func (w *Writer) openFor(entry types.Entry) {
 		s := w.Grain.Floor(entry.Stamp)
 		e := w.Grain.AddTo(s)
 		w.intvl = timewalker.Interval{Start: s, End: e}
-		log.Printf("+Initial interval: %s : %s %s", w.Grain, entry.Stamp, w.intvl)
+		// log.Printf("+Initial interval: %s : %s %s", w.Grain, entry.Stamp, w.intvl)
 	}
 
 	if !entry.Stamp.Before(w.intvl.End) {
