@@ -3,7 +3,9 @@
 ## TODO
 
 - Bring back Evernote TODO to here...
-- generalized iterator
+- generalized iterator - <https://blog.kowalczyk.info/article/1Bkr/3-ways-to-iterate-in-go.html>
+  - use ephepral as a testbed
+  - implement it so zip can consume it
 - json streaming parsing
 - channels of slices `chan []types.Entry`
   - Extract slice manipulation
