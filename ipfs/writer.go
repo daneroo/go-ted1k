@@ -1,6 +1,7 @@
 package ipfs
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -39,9 +40,7 @@ func (w *Writer) Write(src <-chan []types.Entry) (int, error) {
 		for _, entry := range slice {
 			count++
 
-			w.openFor(entry)
-			// err := w.fw.Enc.Encode(&entry)
-			_, err := fmt.Fprintf(w.fw.W, "{\"stamp\":\"%s\",\"watt\":%d}\n", entry.Stamp.Format(time.RFC3339Nano), entry.Watt)
+			err := w.writeOneEntry(entry)
 			util.Checkerr(err)
 		}
 	}
@@ -49,10 +48,17 @@ func (w *Writer) Write(src <-chan []types.Entry) (int, error) {
 	return count, nil
 }
 
+func (w *Writer) writeOneEntry(entry types.Entry) error {
+	w.openFor(entry)
+	_, err := fmt.Fprintf(w.fw.Bufw, "{\"stamp\":\"%s\",\"watt\":%d}\n", entry.Stamp.Format(time.RFC3339Nano), entry.Watt)
+	return err
+}
+
 func (w *Writer) close() {
 	log.Printf("Final close: %s", w.intvl)
 	path := pathFor(w.Grain, w.intvl)
 	cid, _ := w.fw.Close()
+
 	_, err := w.Dw.AddFile(path, cid)
 	util.Checkerr(err)
 
@@ -62,32 +68,35 @@ func (w *Writer) close() {
 }
 
 // Does 4 things; open File, buffer, encoder, Interval
+// - if there is not yet an interval, set it
+// - if we are past the end of the current interval
+//   - close the the current writer
+//   - open the next writer
 func (w *Writer) openFor(entry types.Entry) {
 	// could test Start==End (not initialized)
 	// 1- Determine the interval the new Entry is in
-	if !w.intvl.Start.IsZero() {
-		// log.Printf("-I: %s : %s %s", w.Grain, entry.Stamp, w.intvl)
-	} else {
+	if w.intvl.Start.IsZero() {
 		s := w.Grain.Floor(entry.Stamp)
 		e := w.Grain.AddTo(s)
 		w.intvl = timewalker.Interval{Start: s, End: e}
-		log.Printf("+I: %s : %s %s", w.Grain, entry.Stamp, w.intvl)
+		log.Printf("+Initial interval: %s : %s %s", w.Grain, entry.Stamp, w.intvl)
 	}
 
 	// 2- Close before Open - if we are in a new interval
 	if !entry.Stamp.Before(w.intvl.End) {
 		if w.fw.isOpen {
-			log.Printf("Should close: %s", w.intvl)
 			path := pathFor(w.Grain, w.intvl)
 			cid, _ := w.fw.Close()
 			_, err := w.Dw.AddFile(path, cid)
 			util.Checkerr(err)
+			log.Printf("Should close: %s", path)
 
 			// new interval: for loop
 			s := w.Grain.Floor(entry.Stamp)
 			e := w.Grain.AddTo(s)
 			w.intvl = timewalker.Interval{Start: s, End: e}
-			log.Printf("Should open: %s", w.intvl)
+			nupath := pathFor(w.Grain, w.intvl)
+			log.Printf("Should open: %s", nupath)
 			w.fw = NewFWriter(w.Dw.sh, false) // no pin
 		}
 	}
@@ -134,7 +143,8 @@ func (dw *DWriter) AddFile(path, cid string) (string, error) {
 type FWriter struct {
 	sh      *shell.Shell   // the ipfs shell
 	isOpen  bool           // just to ensure no double close.
-	W       *io.PipeWriter // where we write the encoded JSON - this is exposed
+	w       *io.PipeWriter // where we write the encoded JSON - this is wrapped by the bufw
+	Bufw    *bufio.Writer  // where we write the encoded JSON - this is exposed
 	Enc     *json.Encoder  // a json encoder, which write to the W writer
 	r       *io.PipeReader // the reader that is passed to sh.Add(r)
 	cidChan chan string    // will return the cid from the sh.Add(r) - or nothing
@@ -144,9 +154,11 @@ type FWriter struct {
 // NewFWriter is a FWriter constructor
 func NewFWriter(sh *shell.Shell, pin bool) *FWriter {
 	r, w := io.Pipe()
+	bufw := bufio.NewWriter(w) // buffer size does not matter much
+
 	cidChan := make(chan string)
 	errChan := make(chan error)
-	enc := json.NewEncoder(w)
+	enc := json.NewEncoder(bufw)
 
 	go func() {
 		cid, err := sh.Add(r, shell.Pin(pin))
@@ -165,7 +177,8 @@ func NewFWriter(sh *shell.Shell, pin bool) *FWriter {
 	return &FWriter{
 		sh:      sh,
 		isOpen:  true,
-		W:       w,
+		w:       w,
+		Bufw:    bufw,
 		Enc:     enc,
 		r:       r,
 		cidChan: cidChan,
@@ -174,10 +187,12 @@ func NewFWriter(sh *shell.Shell, pin bool) *FWriter {
 
 }
 
-// Close closes the W:io.PipeWriter, and waits for cid,err from the spawner goroutine
+// Close flushes the bufferd writer, closes the w:io.PipeWriter, and waits for cid,err from the spawned reader goroutine
 func (fw *FWriter) Close() (string, error) {
-	err := fw.W.Close()
-	if err != nil {
+	if err := fw.Bufw.Flush(); err != nil {
+		return "", err
+	}
+	if err := fw.w.Close(); err != nil {
 		return "", err
 	}
 	fw.isOpen = false
@@ -185,7 +200,7 @@ func (fw *FWriter) Close() (string, error) {
 	case cid := <-fw.cidChan:
 		// fmt.Println("received cid", cid)
 		return cid, nil
-	case err = <-fw.errChan:
+	case err := <-fw.errChan:
 		// fmt.Println("received error", err)
 		return "", err
 	}

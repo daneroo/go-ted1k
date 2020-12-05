@@ -50,13 +50,11 @@ func (w *Writer) close() {
 // Does 4 things; open File, buffer, encoder, Interval
 func (w *Writer) openFor(entry types.Entry) {
 	// could test Start==End (not initialized)
-	if !w.intvl.Start.IsZero() {
-		// log.Printf("-I: %s : %s %s", w.Grain, entry.Stamp, w.intvl)
-	} else {
+	if w.intvl.Start.IsZero() {
 		s := w.Grain.Floor(entry.Stamp)
 		e := w.Grain.AddTo(s)
 		w.intvl = timewalker.Interval{Start: s, End: e}
-		log.Printf("+I: %s : %s %s", w.Grain, entry.Stamp, w.intvl)
+		log.Printf("+Initial interval: %s : %s %s", w.Grain, entry.Stamp, w.intvl)
 	}
 
 	if !entry.Stamp.Before(w.intvl.End) {

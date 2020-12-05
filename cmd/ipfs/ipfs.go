@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"log"
@@ -8,6 +9,7 @@ import (
 	"time"
 
 	"github.com/daneroo/go-ted1k/ipfs"
+	"github.com/daneroo/go-ted1k/timer"
 	"github.com/daneroo/go-ted1k/types"
 	shell "github.com/ipfs/go-ipfs-api"
 )
@@ -35,7 +37,7 @@ func main() {
 	// Where your local node is running on localhost:5001
 	sh := shell.NewShell("localhost:5001")
 
-	if false {
+	if true {
 		cid, err := addOneFile(sh, 1, true)
 		if err != nil {
 			log.Fatalf("error adding file: %s", err)
@@ -46,10 +48,10 @@ func main() {
 			log.Fatalf("error getting file: %s", err)
 		}
 		defer r.Close()
-		showReader(r, cid)
+		// showReader(r, cid)
 	}
 
-	if true {
+	if false {
 		dircid, err := addOneDir(sh)
 		if err != nil {
 			log.Fatalf("error adding directory: %s", err)
@@ -99,18 +101,37 @@ func getOneFile(sh *shell.Shell, cid string) (io.ReadCloser, error) {
 
 func addOneFile(sh *shell.Shell, day int, pin bool) (string, error) {
 	fw := ipfs.NewFWriter(sh, pin)
+	var b bytes.Buffer
 
 	stamp := time.Date(2020, time.January, day, 0, 0, 0, 0, time.UTC)
-	// size := 2678400
-	size := 86400
-	for i := 0; i < size; i++ {
+	start := time.Now()
+	length := 2678400
+	// size := 86400
+	for i := 0; i < length; i++ {
 		entry := types.Entry{Stamp: stamp, Watt: int(stamp.Unix() % 5000)}
-		// fw.Enc.Encode(&entry)
-		fmt.Fprintf(fw.W, "{\"stamp\":\"%s\",\"watt\":%d}\n", entry.Stamp.Format(time.RFC3339Nano), entry.Watt)
+		// fmt.Fprintf(fw.W, "{\"stamp\":\"%s\",\"watt\":%d}\n", entry.Stamp.Format(time.RFC3339Nano), entry.Watt)
+
+		s := fmt.Sprintf("{\"stamp\":\"%s\",\"watt\":%d}\n", entry.Stamp.Format(time.RFC3339Nano), entry.Watt)
+		b.WriteString(s)
+
+		if i%1e5 == 0 { // max speed 1e5, 1e4 is fine 991k/s vs 1.1M/s
+			// log.Printf("Break the writer: %d bytes\n", len(b.Bytes()))
+			fw.Bufw.Write(b.Bytes())
+			b.Reset()
+		}
+
 		stamp = stamp.Add(time.Second)
 	}
-	// fmt.Fprintf(fw.W, "]")
+
+	fw.Bufw.Write(b.Bytes())
+	b.Reset()
+	fw.Bufw.Flush()
+	timer.Track(start, "sh.Add", length)
+
+	// r := strings.NewReader(content)
+	// cid, err := sh.Add(r, shell.Pin(pin))
 	cid, err := fw.Close()
+	log.Printf("Added content(%d): %s\n", length, cid)
 	return cid, err
 }
 
