@@ -27,7 +27,8 @@ func NewReader() *Reader {
 		Epoch: ThisYear,
 		Batch: 1000,
 		// math.PI * 1e7 ~ 1 year in seconds!
-		TotalRows: 3.1415926e7,
+		// TotalRows: 3.1415926e7,
+		TotalRows: 1e7,
 	}
 }
 

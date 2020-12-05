@@ -11,7 +11,7 @@ import (
 const (
 	// BatchByDay is an approximate count of samples per day
 	// BatchByDay = 3600 * 24
-	monitorBatch = 1e7
+	monitorBatch = 1e6
 )
 
 // TODO(daneroo) create a constructor with options

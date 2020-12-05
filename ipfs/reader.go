@@ -3,19 +3,22 @@ package ipfs
 import (
 	"bufio"
 	"encoding/json"
-	"os"
+	"fmt"
+	"log"
 	"time"
 
 	"github.com/daneroo/go-ted1k/timer"
 	"github.com/daneroo/go-ted1k/types"
 	"github.com/daneroo/go-ted1k/util"
 	"github.com/daneroo/timewalker"
+	shell "github.com/ipfs/go-ipfs-api"
 )
 
 // Reader is ...
 type Reader struct {
-	Grain    timewalker.Duration
-	BasePath string
+	sh    *shell.Shell
+	Grain timewalker.Duration
+	Cid   string
 	// Slice Batching: the capacity of a single slice []types.Entry
 	Batch int
 	// this state is shared to preserve split of Read(),readOneFile()
@@ -30,11 +33,12 @@ const (
 )
 
 // NewReader is a constructor for the Reader struct
-func NewReader() *Reader {
+func NewReader(sh *shell.Shell, cid string) *Reader {
 	return &Reader{
-		Grain:    timewalker.Month,
-		BasePath: defaultBasePath,
-		Batch:    1000,
+		sh:    sh,
+		Grain: timewalker.Month,
+		Batch: 1000,
+		Cid:   cid,
 	}
 }
 
@@ -48,13 +52,13 @@ func (r *Reader) Read() <-chan []types.Entry {
 		r.slice = make([]types.Entry, 0, r.Batch)
 
 		// get the files
-		filenames, err := filesIn(r.BasePath, r.Grain)
+		filenames, err := r.filesIn()
 		util.Checkerr(err)
 
 		totalCount := 0
 
 		for _, filename := range filenames {
-			// log.Printf("-jsonl.Read: %s : %s", r.Grain, filename)
+			log.Printf("Reading %s\n", filename)
 			count := r.readOneFile(filename)
 			totalCount += count
 		}
@@ -71,16 +75,39 @@ func (r *Reader) Read() <-chan []types.Entry {
 	return r.src
 }
 
-// TODO(daneroo): error handling
-// TODO(daneroo): close readers and decoder
-// add a bufio.NewReader
-func (r *Reader) readOneFile(filename string) int {
-	// Open the file
-	reader, err := os.Open(filename)
-	util.Checkerr(err)
+// fileIn returns a slice of full paths to the files in the top level r.Cid
+// assume flat directory for now
+func (r *Reader) filesIn() ([]string, error) {
+	path := fmt.Sprintf("%s/%s", r.Cid, dirFor(r.Grain))
+	log.Printf("dir: %s\n", path)
+	objects, err := r.sh.FileList(path)
+	if err != nil {
+		return nil, err
+	}
 
-	// dec := json.NewDecoder(reader)
-	// bufferedReader := bufio.NewReader(reader) // 4k is the default
+	// Important:We must guarantee file order
+	var filenames []string
+	for idx, link := range objects.Links {
+		log.Printf("Link %d: %+v\n", idx, link)
+		if link.Type == "File" { // File or Directory
+			filename := fmt.Sprintf("%s/%s", path, link.Name)
+			filenames = append(filenames, filename)
+		} else {
+			// when we want to recurse
+		}
+	}
+
+	return filenames, nil
+}
+
+// TODO(daneroo): error handling
+// filename is the fully qualified pah (cid included)
+func (r *Reader) readOneFile(path string) int {
+
+	reader, err := r.sh.Cat(path)
+	util.Checkerr(err)
+	defer reader.Close()
+
 	bufferedReader := bufio.NewReaderSize(reader, bufferedReaderSize)
 	dec := json.NewDecoder(bufferedReader)
 

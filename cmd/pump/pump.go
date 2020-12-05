@@ -70,9 +70,11 @@ func main() {
 	if true {
 		iw := ipfs.NewWriter(sh)
 		doTest("ephemeral -> ipfs", ephemeral.NewReader(), iw)
-		log.Printf("Pinned: %s\n", iw.Dw.Dir)
-		// doTest("ipfs -> ephemeral", ipfs.NewReader(), ephemeral.NewWriter())
-		// verify("ephemeral<->ipfs", ephemeral.NewReader().Read(), ipfs.NewReader().Read())
+		dirCid := iw.Dw.Dir
+		// dirCid := "QmYEZzGXRwzWArokCyEqpJnLrbp3F2WEUY46huWtu6TqL6"
+		log.Printf("Pinned: %s\n", dirCid)
+		doTest("ipfs -> ephemeral", ipfs.NewReader(sh, dirCid), ephemeral.NewWriter())
+		verify("ephemeral<->ipfs", ephemeral.NewReader().Read(), ipfs.NewReader(sh, dirCid).Read())
 	}
 	// doTest("ephemeral -> postgres", ephemeral.NewReader(), postgres.NewWriter(conn, tableNames[0]))
 	// doTest("ephemeral -> mysql", ephemeral.NewReader(), mysql.NewWriter(db, tableNames[0]))
