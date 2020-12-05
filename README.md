@@ -3,6 +3,7 @@
 ## TODO
 
 - Bring back Evernote TODO to here...
+- generalized iterator
 - json streaming parsing
 - channels of slices `chan []types.Entry`
   - Extract slice manipulation
@@ -64,22 +65,59 @@ I should implement my own select .. into (in go), using table names as in mysql
 select mean(value)*24/1000 into kwh_1d from watt where time > '2015-09-01' group by time(1d)
 ```
 
-## Timing of MySQL reads
+## Data pump performance
 
-For timing of MySQL selects with maxCount results
+This was performed a an ubuntu:20.04 VM (Proxmox), on a mac mini 2012/8G/2TBSSSD, databases/ipfs running in docker in the same VM. The `ephemaral` data set is a synthectic 31M datapoints representing~1year of second data; 100MB/month, 1.35GB total
 
 ```bash
-From goedel to cantor
-  3600: 989s
-  3600*24: 357s
-  3600*24*10: 324s
+$ time go run cmd/pump/pump.go 
+2020-12-05T20:20:50.659Z - Starting TED1K pump
+2020-12-05T20:20:50.666Z - Connected to MySQL
+2020-12-05T20:20:50.723Z - Connected to Postgres
 
-From Dirac to local docker:
-  3600*24: 605s  (Read-only)
+2020-12-05T20:20:50.739Z - -=- ephemeral -> ephemeral
+2020-12-05T20:20:51.895Z - -=- ephemeral <-> ephemeral
+2020-12-05T20:21:25.040Z - ephemeral <-> ephemeral took 33.145s, rate ~ 947.8k/s count: 31415926
+2020-12-05T20:21:25.042Z - Verified ephemeral <-> ephemeral:
+2020-12-05T20:21:25.042Z - [2020-01-01T00:00:00Z, 2020-12-29T14:38:45Z](31415926) Equal
 
-From Godel to local docker:
-  3600*24: 294s,290s  (Read-only) Now 412s,405s, with IgnoreAll
-  10000: --s  (Batch Writes)
+2020-12-05T20:21:25.043Z - -=- ephemeral -> jsonl
+2020-12-05T20:22:00.577Z - ephemeral -> jsonl took 35.534s, rate ~ 884.1k/s count: 31415926
+2020-12-05T20:22:00.757Z - -=- jsonl -> ephemeral
+2020-12-05T20:23:04.987Z - jsonl -> ephemeral took 1m4.23s, rate ~ 489.1k/s count: 31415926
+2020-12-05T20:23:04.987Z - -=- ephemeral<->jsonl
+2020-12-05T20:24:11.201Z - ephemeral<->jsonl took 1m6.214s, rate ~ 474.5k/s count: 31415926
+2020-12-05T20:24:11.202Z - Verified ephemeral<->jsonl:
+2020-12-05T20:24:11.202Z - [2020-01-01T00:00:00Z, 2020-12-29T14:38:45Z](31415926) Equal
+
+2020-12-05T20:24:11.204Z - -=- ephemeral -> ipfs
+2020-12-05T20:24:42.122Z - ephemeral -> ipfs took 30.918s, rate ~ 1.0M/s count: 31415926
+2020-12-05T20:24:42.164Z - -=- ipfs -> ephemeral
+2020-12-05T20:25:48.695Z - ipfs -> ephemeral took 1m6.53s, rate ~ 472.2k/s count: 31415926
+2020-12-05T20:25:48.699Z - -=- ephemeral <-> ipfs
+2020-12-05T20:26:58.419Z - ephemeral <-> ipfs took 1m9.72s, rate ~ 450.6k/s count: 31415926
+2020-12-05T20:26:58.424Z - Verified ephemeral <-> ipfs:
+2020-12-05T20:26:58.424Z - [2020-01-01T00:00:00Z, 2020-12-29T14:38:45Z](31415926) Equal
+
+2020-12-05T20:26:58.424Z - -=- ephemeral -> postgres
+2020-12-05T20:28:35.376Z - ephemeral -> postgres took 1m36.952s, rate ~ 324.0k/s count: 31415926
+2020-12-05T20:28:35.398Z - -=- postgres -> ephemeral
+2020-12-05T20:28:52.347Z - postgres -> ephemeral took 16.949s, rate ~ 1.9M/s count: 31415926
+2020-12-05T20:28:52.347Z - -=- ephemeral <-> postgres
+2020-12-05T20:29:32.599Z - ephemeral <-> postgres took 40.252s, rate ~ 780.5k/s count: 31415926
+2020-12-05T20:29:32.600Z - Verified ephemeral <-> postgres:
+2020-12-05T20:29:32.600Z - [2020-01-01T00:00:00Z, 2020-12-29T14:38:45Z](31415926) Equal
+
+2020-12-05T20:29:32.600Z - -=- ephemeral -> mysql
+2020-12-05T20:37:37.810Z - ephemeral -> mysql took 8m5.209s, rate ~ 64.7k/s count: 31415926
+2020-12-05T20:37:37.946Z - -=- mysql -> ephemeral
+2020-12-05T20:38:22.471Z - mysql -> ephemeral took 44.525s, rate ~ 705.6k/s count: 31415926
+2020-12-05T20:38:22.471Z - -=- ephemeral <-> mysql
+2020-12-05T20:39:10.200Z - ephemeral <-> mysql took 47.728s, rate ~ 658.2k/s count: 31415926
+2020-12-05T20:39:10.201Z - Verified ephemeral <-> mysql:
+2020-12-05T20:39:10.201Z - [2020-01-01T00:00:00Z, 2020-12-29T14:38:45Z](31415926) Equal
+
+real	18m23.413s
 ```
 
 ## Historical aggregation
