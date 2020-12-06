@@ -4,13 +4,13 @@
 
 - Bring back Evernote TODO to here...
 - generalized iterator - <https://blog.kowalczyk.info/article/1Bkr/3-ways-to-iterate-in-go.html>
-  - use ephepral as a testbed
+  - use ephemeral as a testbed
   - implement it so zip can consume it
 - json streaming parsing
 - channels of slices `chan []types.Entry`
   - Extract slice manipulation
   - Fix/Remove : unwrapSliceChannel speed
-  - verfy and **merge** - for faster inserts
+  - verify and **merge** - for faster inserts
 - ipfs
   - Powergate / Filecoin - <https://blog.textile.io/hosted-powergate/>
 - flux (at least write) <https://github.com/influxdata/influxdb-client-go#writes>
@@ -77,7 +77,7 @@ select mean(value)*24/1000 into kwh_1d from watt where time > '2015-09-01' group
 
 ## Data pump performance
 
-This was performed a an ubuntu:20.04 VM (Proxmox), on a mac mini 2012/8G/2TBSSSD, databases/ipfs running in docker in the same VM. The `ephemaral` data set is a synthectic 31M datapoints representing~1year of second data; 100MB/month, 1.35GB total
+This was performed a an ubuntu:20.04 VM (Proxmox), on a mac mini 2012/8G/2TB-SSD, databases/ipfs running in docker in the same VM. The `ephemeral` data set is a synthetic 31M data points representing~1year of second data; 100MB/month, 1.35GB total
 
 ```bash
 $ time go run cmd/pump/pump.go 
