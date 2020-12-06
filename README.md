@@ -38,6 +38,14 @@ go test -v ./...
 go run cmd/pump/pump.go
 ```
 
+### ipfs
+
+```bash
+# unpin all recursive pins - and run the gc
+ipfs pin ls --type recursive | cut -d' ' -f1 | xargs -n1 ipfs pin rm
+ipfs repo gc
+```
+
 ## Postgres
 
 ```sql
