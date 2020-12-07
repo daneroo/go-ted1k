@@ -6,7 +6,10 @@ import (
 	"time"
 
 	"github.com/daneroo/go-ted1k/ephemeral"
+	"github.com/daneroo/go-ted1k/iterator"
 	"github.com/daneroo/go-ted1k/logsetup"
+	"github.com/daneroo/go-ted1k/merge"
+	"github.com/daneroo/go-ted1k/progress"
 	"github.com/daneroo/go-ted1k/timer"
 	"github.com/daneroo/go-ted1k/types"
 )
@@ -19,8 +22,20 @@ func main() {
 	// totalCount := int(3)
 	performIteration("Reference Entry Iterator", newEntryIterator(totalCount))
 	eatSlices("Explicit Slice Channel Iterator")
-	performIteration("Slice Channel Adaptor Iterator", newSliceIterator())
+	performIteration("Slice Channel Adaptor Iterator", iterator.NewSliceIterator(ephemeral.NewReader().Read()))
+	verify("eph <-> eph", ephemeral.NewReader(), ephemeral.NewReader())
+	verify("eph <-> eph", ephemeral.NewReader(), ephemeral.NewReader())
+	verify("eph <-> eph", ephemeral.NewReader(), ephemeral.NewReader())
+	verify("eph <-> eph", ephemeral.NewReader(), ephemeral.NewReader())
+}
 
+func verify(name string, a, b types.EntryReader) {
+	log.Printf("-=- %s\n", name)
+	vv := merge.Verify(a.Read(), progress.Monitor(name, b.Read()))
+	log.Printf("Verified %s:\n", name)
+	for _, v := range vv {
+		log.Println(v)
+	}
 }
 
 func eatSlices(name string) {
@@ -39,7 +54,7 @@ func eatSlices(name string) {
 	timer.Track(start, fmt.Sprintf("%33s", name), count)
 }
 
-func performIteration(name string, iter iterator) {
+func performIteration(name string, iter iterator.Entry) {
 	start := time.Now()
 	count := 0
 	for iter.Next() {
@@ -52,13 +67,6 @@ func performIteration(name string, iter iterator) {
 		log.Fatalf("%s, error: %s\n", name, iter.Error())
 	}
 	timer.Track(start, fmt.Sprintf("%33s", name), count)
-}
-
-// Iterator is ... - first we do this with a struct, then with a closure
-type iterator interface {
-	Next() bool
-	Value() types.Entry
-	Error() error
 }
 
 type entryIterator struct {
@@ -98,6 +106,16 @@ func (i *entryIterator) Next() bool {
 	return i.currentCount <= i.TotalCount
 }
 
+// ValueIfPresent implements the Entry interface
+// ValueIfPresent is like: a, aOk := <-aa
+func (i *entryIterator) ValueIfPresent() (types.Entry, bool) {
+	ok := i.Next()
+	if ok {
+		return i.Value(), ok // true
+	}
+	return types.Entry{}, ok // false
+}
+
 func (i *entryIterator) Value() types.Entry {
 	if i.err != nil || !(i.currentCount <= i.TotalCount) {
 		panic("Value is not valid after iterator finished")
@@ -109,57 +127,5 @@ func (i *entryIterator) Value() types.Entry {
 }
 
 func (i *entryIterator) Error() error {
-	return i.err
-}
-
-type sliceIterator struct {
-	reader *ephemeral.Reader
-	src    <-chan []types.Entry
-	slice  []types.Entry // current slice
-	err    error
-}
-
-func newSliceIterator() *sliceIterator {
-	reader := ephemeral.NewReader()
-	src := reader.Read()
-
-	return &sliceIterator{
-		reader: reader,
-		src:    src,
-	}
-}
-
-// for slice := range src {
-// 	for _, entry := range slice { // index,entry
-// 		if entry.Watt >= 0 {
-// 			count++
-// 		}
-// 	}
-// }
-
-func (i *sliceIterator) Next() bool {
-	// if current i.slice is non empty, return true (there are more items)
-	// otherwise, get next slice from src channel (until we have a non-empty one)
-	// if the channel is closed, we have no more items
-	// note: the zero element (initialized in the struct) is an empty slice
-	for len(i.slice) == 0 {
-		// fetch the nxt slice if there is one
-		if slice, ok := <-i.src; ok {
-			i.slice = slice // strore is struct state
-		} else {
-			return false
-		}
-	}
-	return true
-}
-
-func (i *sliceIterator) Value() types.Entry {
-	// shift/pop front:	x, a = a[0], a[1:]
-	head, slice := i.slice[0], i.slice[1:]
-	i.slice = slice
-	return head
-}
-
-func (i *sliceIterator) Error() error {
 	return i.err
 }

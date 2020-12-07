@@ -22,7 +22,6 @@ type Reader struct {
 }
 
 const (
-	// channelCapacity    = 100       // this made a huge difference, 10 is not enough 1000 makesno difference
 	channelCapacity    = 2         // this is now a channel of slices
 	bufferedReaderSize = 32 * 1024 // default is 4k, 32k ~5% improvement
 )
@@ -38,11 +37,9 @@ func NewReader() *Reader {
 
 // Read() creates and returns a channel of []types.Entry
 func (r *Reader) Read() <-chan []types.Entry {
-	// TODO(daneroo) tweak this capacity, probably related to the efficiency of the encoder
 	r.src = make(chan []types.Entry, channelCapacity)
 
 	go func(r *Reader) {
-		// start := time.Now()
 		r.slice = make([]types.Entry, 0, r.Batch)
 
 		// get the files
@@ -62,7 +59,6 @@ func (r *Reader) Read() <-chan []types.Entry {
 		// close the channel
 		close(r.src)
 		r.src = nil
-		// timer.Track(start, "jsonl.Read", totalCount)
 	}(r)
 
 	return r.src

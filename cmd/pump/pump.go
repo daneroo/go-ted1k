@@ -24,13 +24,6 @@ const (
 	pgCredentials = "postgres://postgres:secret@0.0.0.0:5432/ted"
 )
 
-type entryWriter interface {
-	Write(src <-chan []types.Entry) (int, error)
-}
-type entryReader interface {
-	Read() <-chan []types.Entry
-}
-
 func main() {
 	logsetup.SetupFormat()
 	log.Printf("Starting TED1K pump\n") // TODO(daneroo): add version,buildDate
@@ -90,12 +83,12 @@ func main() {
 
 }
 
-func doTest(name string, r entryReader, w entryWriter) (int, error) {
+func doTest(name string, r types.EntryReader, w types.EntryWriter) (int, error) {
 	log.Printf("-=- %s\n", name)
 	return w.Write(progress.Monitor(name, r.Read()))
 }
 
-func verify(name string, a, b entryReader) {
+func verify(name string, a, b types.EntryReader) {
 	log.Printf("-=- %s\n", name)
 	vv := merge.Verify(a.Read(), progress.Monitor(name, b.Read()))
 	log.Printf("Verified %s:\n", name)

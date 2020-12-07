@@ -3,14 +3,11 @@
 ## TODO
 
 - Bring back Evernote TODO to here...
-- generalized iterator - <https://blog.kowalczyk.info/article/1Bkr/3-ways-to-iterate-in-go.html>
-  - use ephemeral as a testbed
-  - implement it so zip can consume it
+- Verify(eph,eph) - has a timing bug for output Verified before .. took..
 - json streaming parsing
 - channels of slices `chan []types.Entry`
   - Extract slice manipulation
-  - Fix/Remove : unwrapSliceChannel speed
-  - verify and **merge** - for faster inserts
+- Verify and **merge** - for faster inserts
 - ipfs
   - Powergate / Filecoin - <https://blog.textile.io/hosted-powergate/>
 - flux (at least write) <https://github.com/influxdata/influxdb-client-go#writes>
@@ -81,53 +78,54 @@ This was performed a an ubuntu:20.04 VM (Proxmox), on a mac mini 2012/8G/2TB-SSD
 
 ```bash
 $ time go run cmd/pump/pump.go 
-2020-12-05T20:20:50.659Z - Starting TED1K pump
-2020-12-05T20:20:50.666Z - Connected to MySQL
-2020-12-05T20:20:50.723Z - Connected to Postgres
+2020-12-07T02:27:56.436Z - Starting TED1K pump
+2020-12-07T02:27:56.441Z - Connected to MySQL
+2020-12-07T02:27:56.528Z - Connected to Postgres
 
-2020-12-05T20:20:50.739Z - -=- ephemeral -> ephemeral
-2020-12-05T20:20:51.895Z - -=- ephemeral <-> ephemeral
-2020-12-05T20:21:25.040Z - ephemeral <-> ephemeral took 33.145s, rate ~ 947.8k/s count: 31415926
-2020-12-05T20:21:25.042Z - Verified ephemeral <-> ephemeral:
-2020-12-05T20:21:25.042Z - [2020-01-01T00:00:00Z, 2020-12-29T14:38:45Z](31415926) Equal
+2020-12-07T02:27:56.578Z - -=- ephemeral -> ephemeral
+2020-12-07T02:27:57.745Z - ephemeral -> ephemeral took 1.166s, rate ~ 26.9M/s count: 31415926
+2020-12-07T02:27:57.745Z - -=- ephemeral <-> ephemeral
+2020-12-07T02:28:01.388Z - ephemeral <-> ephemeral took 3.643s, rate ~ 8.6M/s count: 31415926
+2020-12-07T02:28:01.388Z - Verified ephemeral <-> ephemeral:
+2020-12-07T02:28:01.388Z - [2020-01-01T00:00:00Z, 2020-12-29T14:38:45Z](31415926) Equal
 
-2020-12-05T20:21:25.043Z - -=- ephemeral -> jsonl
-2020-12-05T20:22:00.577Z - ephemeral -> jsonl took 35.534s, rate ~ 884.1k/s count: 31415926
-2020-12-05T20:22:00.757Z - -=- jsonl -> ephemeral
-2020-12-05T20:23:04.987Z - jsonl -> ephemeral took 1m4.23s, rate ~ 489.1k/s count: 31415926
-2020-12-05T20:23:04.987Z - -=- ephemeral<->jsonl
-2020-12-05T20:24:11.201Z - ephemeral<->jsonl took 1m6.214s, rate ~ 474.5k/s count: 31415926
-2020-12-05T20:24:11.202Z - Verified ephemeral<->jsonl:
-2020-12-05T20:24:11.202Z - [2020-01-01T00:00:00Z, 2020-12-29T14:38:45Z](31415926) Equal
+2020-12-07T02:28:01.388Z - -=- ephemeral -> jsonl
+2020-12-07T02:28:37.179Z - ephemeral -> jsonl took 35.791s, rate ~ 877.8k/s count: 31415926
+2020-12-07T02:28:37.490Z - -=- jsonl -> ephemeral
+2020-12-07T02:29:40.597Z - jsonl -> ephemeral took 1m3.107s, rate ~ 497.8k/s count: 31415926
+2020-12-07T02:29:40.597Z - -=- ephemeral<->jsonl
+2020-12-07T02:30:45.539Z - ephemeral<->jsonl took 1m4.942s, rate ~ 483.8k/s count: 31415926
+2020-12-07T02:30:45.539Z - Verified ephemeral<->jsonl:
+2020-12-07T02:30:45.539Z - [2020-01-01T00:00:00Z, 2020-12-29T14:38:45Z](31415926) Equal
 
-2020-12-05T20:24:11.204Z - -=- ephemeral -> ipfs
-2020-12-05T20:24:42.122Z - ephemeral -> ipfs took 30.918s, rate ~ 1.0M/s count: 31415926
-2020-12-05T20:24:42.164Z - -=- ipfs -> ephemeral
-2020-12-05T20:25:48.695Z - ipfs -> ephemeral took 1m6.53s, rate ~ 472.2k/s count: 31415926
-2020-12-05T20:25:48.699Z - -=- ephemeral <-> ipfs
-2020-12-05T20:26:58.419Z - ephemeral <-> ipfs took 1m9.72s, rate ~ 450.6k/s count: 31415926
-2020-12-05T20:26:58.424Z - Verified ephemeral <-> ipfs:
-2020-12-05T20:26:58.424Z - [2020-01-01T00:00:00Z, 2020-12-29T14:38:45Z](31415926) Equal
+2020-12-07T02:30:45.545Z - -=- ephemeral -> ipfs
+2020-12-07T02:31:16.579Z - ephemeral -> ipfs took 31.033s, rate ~ 1.0M/s count: 31415926
+2020-12-07T02:31:16.632Z - -=- ipfs -> ephemeral
+2020-12-07T02:32:23.407Z - ipfs -> ephemeral took 1m6.775s, rate ~ 470.5k/s count: 31415926
+2020-12-07T02:32:23.407Z - -=- ephemeral <-> ipfs
+2020-12-07T02:33:31.153Z - ephemeral <-> ipfs took 1m7.746s, rate ~ 463.7k/s count: 31415926
+2020-12-07T02:33:31.153Z - Verified ephemeral <-> ipfs:
+2020-12-07T02:33:31.153Z - [2020-01-01T00:00:00Z, 2020-12-29T14:38:45Z](31415926) Equal
 
-2020-12-05T20:26:58.424Z - -=- ephemeral -> postgres
-2020-12-05T20:28:35.376Z - ephemeral -> postgres took 1m36.952s, rate ~ 324.0k/s count: 31415926
-2020-12-05T20:28:35.398Z - -=- postgres -> ephemeral
-2020-12-05T20:28:52.347Z - postgres -> ephemeral took 16.949s, rate ~ 1.9M/s count: 31415926
-2020-12-05T20:28:52.347Z - -=- ephemeral <-> postgres
-2020-12-05T20:29:32.599Z - ephemeral <-> postgres took 40.252s, rate ~ 780.5k/s count: 31415926
-2020-12-05T20:29:32.600Z - Verified ephemeral <-> postgres:
-2020-12-05T20:29:32.600Z - [2020-01-01T00:00:00Z, 2020-12-29T14:38:45Z](31415926) Equal
+2020-12-07T02:33:31.157Z - -=- ephemeral -> postgres
+2020-12-07T02:35:22.040Z - ephemeral -> postgres took 1m50.883s, rate ~ 283.3k/s count: 31415926
+2020-12-07T02:35:22.065Z - -=- postgres -> ephemeral
+2020-12-07T02:35:38.672Z - postgres -> ephemeral took 16.608s, rate ~ 1.9M/s count: 31415926
+2020-12-07T02:35:38.672Z - -=- ephemeral <-> postgres
+2020-12-07T02:35:55.649Z - ephemeral <-> postgres took 16.976s, rate ~ 1.9M/s count: 31415926
+2020-12-07T02:35:55.649Z - Verified ephemeral <-> postgres:
+2020-12-07T02:35:55.649Z - [2020-01-01T00:00:00Z, 2020-12-29T14:38:45Z](31415926) Equal
 
-2020-12-05T20:29:32.600Z - -=- ephemeral -> mysql
-2020-12-05T20:37:37.810Z - ephemeral -> mysql took 8m5.209s, rate ~ 64.7k/s count: 31415926
-2020-12-05T20:37:37.946Z - -=- mysql -> ephemeral
-2020-12-05T20:38:22.471Z - mysql -> ephemeral took 44.525s, rate ~ 705.6k/s count: 31415926
-2020-12-05T20:38:22.471Z - -=- ephemeral <-> mysql
-2020-12-05T20:39:10.200Z - ephemeral <-> mysql took 47.728s, rate ~ 658.2k/s count: 31415926
-2020-12-05T20:39:10.201Z - Verified ephemeral <-> mysql:
-2020-12-05T20:39:10.201Z - [2020-01-01T00:00:00Z, 2020-12-29T14:38:45Z](31415926) Equal
+2020-12-07T02:35:55.649Z - -=- ephemeral -> mysql
+2020-12-07T02:44:48.181Z - ephemeral -> mysql took 8m52.531s, rate ~ 59.0k/s count: 31415926
+2020-12-07T02:44:48.496Z - -=- mysql -> ephemeral
+2020-12-07T02:45:32.259Z - mysql -> ephemeral took 43.764s, rate ~ 717.8k/s count: 31415926
+2020-12-07T02:45:32.259Z - -=- ephemeral <-> mysql
+2020-12-07T02:46:16.792Z - ephemeral <-> mysql took 44.532s, rate ~ 705.5k/s count: 31415926
+2020-12-07T02:46:16.792Z - Verified ephemeral <-> mysql:
+2020-12-07T02:46:16.792Z - [2020-01-01T00:00:00Z, 2020-12-29T14:38:45Z](31415926) Equal
 
-real	18m23.413s
+real	18m24.388s
 ```
 
 ## Historical aggregation
