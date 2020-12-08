@@ -47,7 +47,7 @@ func main() {
 		fmt.Println()
 		doTest("ephemeral -> jsonl", ephemeral.NewReader(), jsonl.NewWriter())
 		doTest("jsonl -> ephemeral", jsonl.NewReader(), ephemeral.NewWriter())
-		verify("ephemeral<->jsonl", ephemeral.NewReader(), jsonl.NewReader())
+		verify("ephemeral <-> jsonl", ephemeral.NewReader(), jsonl.NewReader())
 	}
 
 	// ipfs
