@@ -4,7 +4,7 @@
 
 - Bring back Evernote TODO to here...
 - Verify(eph,eph) - has a timing bug for output Verified before .. took..
-- json streaming parsing
+- json streaming parsing - using EasyJSON unmarshaling (with encoding/json for streaming) yields 15% speedup
 - write to ipfs byDay:~650k/s vs byMonth:1.0M/s (same to a lesser extent with json) 930k/s vs 950k/s
 - channels of slices `chan []types.Entry`
   - Extract slice manipulation
@@ -36,7 +36,7 @@ go test -v ./...
 go run cmd/pump/pump.go
 ```
 
-### ipfs
+### IPFS
 
 ```bash
 # unpin all recursive pins - and run the gc
@@ -44,7 +44,27 @@ ipfs pin ls --type recursive | cut -d' ' -f1 | xargs -n1 ipfs pin rm
 ipfs repo gc
 ```
 
-## Postgres
+## JSON
+
+### Decoding / UnMarshaling
+For decoding which, is a bottleneck, we looked at many streaming modules (ffjson/fastjson, etc), not many of which can properly handle our json per line format well, so we stuck with the `encoding/json` implementation
+
+```
+for (*json.Decoder).More() {
+  err := dec.Decode(&entry)
+}
+```
+
+We did get a slight improvement (`540k/s -> 610k/s`) from `easyjson` by generating a `json.Unmarshaler` interface:
+
+```
+go get -u github.com/mailru/easyjson/...
+${GOPATH-~/go}/bin/easyjson types/types.go
+```
+
+For json encoding, easyjson actually slightly worsened performance (`500k/s -> 495k/s`), but we are not using it because`fmt.Fprintf()` is faster than `json.Encoder.Encode()` with or without `easyjson`, yielding `500k/s -> 875k/s`
+
+## Postgres/TimescaleDB
 
 ```sql
 CREATE TABLE IF NOT EXISTS watt (
@@ -52,6 +72,8 @@ CREATE TABLE IF NOT EXISTS watt (
   stamp TIMESTAMP WITHOUT TIME ZONE NOT NULL PRIMARY KEY,
   watt integer NOT NULL DEFAULT '0'
 );
+-- For timescaledb (must be done on an empty table)
+SELECT create_hypertable('watt', 'stamp')
 ```
 
 ## InfluxDB
@@ -73,7 +95,8 @@ I should implement my own select .. into (in go), using table names as in mysql
 select mean(value)*24/1000 into kwh_1d from watt where time > '2015-09-01' group by time(1d)
 ```
 
-## Data pump performance
+## Performance - Pump
+
 
 This was performed a an ubuntu:20.04 VM (Proxmox), on a mac mini 2012/8G/2TB-SSD, databases/ipfs running in docker in the same VM. The `ephemeral` data set is a synthetic 31M data points representing~1year of second data; 100MB/month, 1.35GB total
 

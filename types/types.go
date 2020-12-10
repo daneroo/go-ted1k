@@ -5,6 +5,11 @@ import (
 )
 
 // Entry is the basic datatype for an energy measurement
+// We used easyjson to generate json.Marshaler/json.Unmarshaler interfaces
+// although only the unmarshaler is used
+//   go get -u github.com/mailru/easyjson/...
+//   ${GOPATH-~/go}/bin/easyjson types/types.go
+//easyjson:json
 type Entry struct {
 	Stamp time.Time `json:"stamp"`
 	Watt  int       `json:"watt"`
