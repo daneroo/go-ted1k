@@ -6,40 +6,66 @@
 # Read the environment variables from environment specific .env file
 . ./MYSQL.env
 
+CONTAINER_NAME=go-ted1k_mysql_1
+# for tiumeing format
+export TIMEFORMAT="%Rs"
+
+# turn this into a loop:
 main() {
 
-	echo "- Restoring database from snapshot: ${SNAPSHOTFILE}"
-	echo "  To docker container named: ${CONTAINER_NAME}"
-	echo "  Using database: ${MYSQL_DATABASE}, MYSQL_USER=${MYSQL_USER}"
-	echo "  Data Volume will persisted inside that docker container"
-	echo
+	# echo "- Restoring database from snapshot: ${SNAPSHOTFILE}"
+	# echo "  To docker container named: ${CONTAINER_NAME}"
+	# echo "  Using database: ${MYSQL_DATABASE}, MYSQL_USER=${MYSQL_USER}"
+	# echo "  Data Volume will persisted inside that docker container"
+	# echo
 
 	# Exit if docker is not setup in this shell
 	checkDocker;
-
 	waitForMysql ${CONTAINER_NAME};
 
-	restoreSnapshot;
+	# SNAPSHOTFILE=./data/archive/mirror/ted/ted.20090214.1756.sql.bz2 # first ted.20*.sql.bz2
+	# SNAPSHOTFILE=./data/archive/mirror/ted/ted.20150928.1006.sql.bz2 # last ted.20*.sql.bz2
+	for SNAPSHOTFILE in ./data/archive/mirror/ted/ted.20??????.????.sql.bz2; do
+		echo
+		echo "-=-= Restoring database from snapshot: ${SNAPSHOTFILE}"
+		restoreSnapshot;
+		echo "- Done Restoring Database"
+	done
 	
-	echo "- Done Restoring Database"
 	echo	
 }
 
 restoreSnapshot() {
 	# command string for executing mysql command inside running container (with exec)
 	# Notice no `-t' to pipe into docker
-	mysqlExecCmd="docker exec -i ${CONTAINER_NAME} mysql -p${MYSQL_PASSWORD} -u${MYSQL_USER} ${MYSQL_DATABASE}"
+	# mysqlExecCmd="docker exec -i ${CONTAINER_NAME} mysql -p${MYSQL_PASSWORD} -u${MYSQL_USER} ${MYSQL_DATABASE}"
+	mysqlExecCmd="docker exec -i ${CONTAINER_NAME} mysql ${MYSQL_DATABASE}"
 	# echo CMD: $mysqlExecCmd
 
+	echo "- Drop tables watt and ted_native before restore, if present"
+	echo 'drop table if exists ted_native;' | $mysqlExecCmd
+	echo 'drop table if exists ted_service;' | $mysqlExecCmd
+	echo 'drop table if exists watt;'| $mysqlExecCmd
+	echo 'drop table if exists watt_day;'| $mysqlExecCmd
+	echo 'drop table if exists watt_hour;' | $mysqlExecCmd
+	echo 'drop table if exists watt_minute;' | $mysqlExecCmd
+	echo 'drop table if exists watt_tensec;' | $mysqlExecCmd
+
+	echo "- Show remaining tables, before restore"
+	echo 'show tables;' | $mysqlExecCmd
 	# pump the snapshot into mysql (through docker exec)
 	echo "- Restoring database..."
 	# gzip --decompress --stdout  ${SNAPSHOTFILE} | $mysqlExecCmd
-	bzcat  ${SNAPSHOTFILE} | $mysqlExecCmd
+	time bzcat  ${SNAPSHOTFILE} | $mysqlExecCmd
 	echo
 
+	echo "- Expect something recent in ted_native table"
+	echo "select min(stamp),max(stamp),count(*) from ted_native" | $mysqlExecCmd
 	echo "- Expect something recent in watt table"
 	echo "select min(stamp),max(stamp),count(*) from watt" | $mysqlExecCmd
 	echo
+	echo "- run mysqlrestore"
+	go run cmd/mysqlrestore/mysqlrestore.go
 }
 
 # Wait for asuccesful connection (using credentials , MYSQL_USER, MYSQL_PASSWORD)

@@ -3,6 +3,7 @@
 ## TODO
 
 - Bring back Evernote TODO to here...
+- script ALL mysql restores -> jsonl
 - Verify(eph,eph) - has a timing bug for output Verified before .. took..
 - Write to ipfs byDay:~650k/s vs byMonth:1.0M/s (same to a lesser extent with json) 930k/s vs 950k/s
 - channels of slices `chan []types.Entry`
