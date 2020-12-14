@@ -4,7 +4,11 @@
 
 - Bring back Evernote TODO to here...
 - script ALL mysql restores -> jsonl
+- [Separate e2e tests](https://stackoverflow.com/questions/25965584/separating-unit-tests-and-integration-tests-in-go/25970712)
+- [docker-compose composition](https://docs.docker.com/compose/extends/)
 - Verify(eph,eph) - has a timing bug for output Verified before .. took..
+- Consider byDay as final format 
+  - Document file layout and format (IPFS/jsonl) including file names and aggregation directories
 - Write to ipfs byDay:~650k/s vs byMonth:1.0M/s (same to a lesser extent with json) 930k/s vs 950k/s
 - channels of slices `chan []types.Entry`
   - Extract slice manipulation
@@ -21,7 +25,6 @@
 
 ## Operations
 
-
 ```bash
 # Start backing services
 docker-compose up -d
@@ -36,12 +39,46 @@ go test -v ./...
 go run cmd/pump/pump.go
 ```
 
+## History
+
+Given all the history of implementations and hardware adventures and failures,
+
+- Scraping of the footprints software (Windows) (Aria Windows Media Server - 2008)
+- Remote mounting the footprints data to linux, and doing ETL from SQLite -> MYSQL
+- Implementing the python native scraper on linux
+- Disk failures on goedel and later cantor
+- Porting the scraper to Raspberry Pi (Which had a catastrophic Flash Card Failure) - that lasted a month 8-(
+- Moving back to euler (née cantor) linux server (We lost data from 2016-02-14 to 2016-03-12)
+- Re-implementing in Go (2018)
+- Implementing the pump in Go for persistence neutral backups
+
+In December 2020 we consolidated the data pump (this repo) to transport and synchronize snapshots, agnostic to storage and transport. Accommodating MySQL,Postgres, `.jsonl` files, IPFS
+
+The aggregation into a final rollup of all legacy snapshots was performed based on backups up to 2020-11-20.
+The detailed aggregation logs and process are found in the [RESTORE-log.md](RESTORE-log.md) file
+
+The final rollup archive: `ted.20201120.2332Z.rollup-clean.jsonl.tar.bz2`, with IPFS/CID:`QmSLJPEZocdPZ99pazEkiJTaf3B1zeBmAQWEr7n9fSNgEu`
+
 ### IPFS
 
 ```bash
 # unpin all recursive pins - and run the gc
 ipfs pin ls --type recursive | cut -d' ' -f1 | xargs -n1 ipfs pin rm
 ipfs repo gc
+```
+
+### Postgres/TimescaleDB
+
+```sql
+CREATE DATABASE ted;
+
+CREATE TABLE IF NOT EXISTS watt (
+  -- timestamp [ (p) ] with time zone
+  stamp TIMESTAMP WITHOUT TIME ZONE NOT NULL PRIMARY KEY,
+  watt integer NOT NULL DEFAULT '0'
+);
+-- For timescaledb (must be done on an empty table)
+SELECT create_hypertable('watt', 'stamp')
 ```
 
 ## JSON
@@ -64,18 +101,6 @@ ${GOPATH-~/go}/bin/easyjson types/types.go
 
 For json encoding, easyjson actually slightly worsened performance (`500k/s -> 495k/s`), but we are not using it because`fmt.Fprintf()` is faster than `json.Encoder.Encode()` with or without `easyjson`, yielding `500k/s -> 875k/s`
 
-## Postgres/TimescaleDB
-
-```sql
-CREATE TABLE IF NOT EXISTS watt (
-  -- timestamp [ (p) ] with time zone
-  stamp TIMESTAMP WITHOUT TIME ZONE NOT NULL PRIMARY KEY,
-  watt integer NOT NULL DEFAULT '0'
-);
--- For timescaledb (must be done on an empty table)
-SELECT create_hypertable('watt', 'stamp')
-```
-
 ## InfluxDB
 
 ```bash
@@ -96,7 +121,6 @@ select mean(value)*24/1000 into kwh_1d from watt where time > '2015-09-01' group
 ```
 
 ## Performance - Pump
-
 
 This was performed a an ubuntu:20.04 VM (Proxmox), on a mac mini 2012/8G/2TB-SSD, databases/ipfs running in docker in the same VM. The `ephemeral` data set is a synthetic 31M data points representing~1year of second data; 100MB/month, 1.35GB total
 
@@ -152,9 +176,6 @@ $ time go run cmd/pump/pump.go
 real	17m11.313s
 ```
 
-## Historical aggregation
-
-We lost data from `( 2016-02-14 21:24:21 , 2016-03-12 06:35:35 ]`
 
 ### Should check monthly sums after snapshots
 

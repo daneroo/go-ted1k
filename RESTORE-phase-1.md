@@ -1,5 +1,10 @@
 # Restore phase 1
 
+```go
+verify("jsonl <-> mysql(watt)", jsonl.NewReader(), mysql.NewReader(db, "watt"))
+verify("jsonl <-> mysql(ted_native)", jsonl.NewReader(), mysql.NewReader(db, "ted_native"))
+```
+
 ```bash
 daniel@dockerdev:~/go-ted1k$ time ./restore-db.sh 
 - Verifying docker environment

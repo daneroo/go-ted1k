@@ -25,7 +25,14 @@ main() {
 
 	# SNAPSHOTFILE=./data/archive/mirror/ted/ted.20090214.1756.sql.bz2 # first ted.20*.sql.bz2
 	# SNAPSHOTFILE=./data/archive/mirror/ted/ted.20150928.1006.sql.bz2 # last ted.20*.sql.bz2
-	for SNAPSHOTFILE in ./data/archive/mirror/ted/ted.20??????.????.sql.bz2; do
+	# Phase-1
+	# for SNAPSHOTFILE in ./data/archive/mirror/ted/ted.20??????.????.sql.bz2; do
+	# pre-Phase-2
+	# - ted.watt.2016-02-14-1555.sql.bz2 - last full fromt 2008-07-30
+	# - ted.watt-just2016.2016-02-14-1624.sql.bz2 first partial from 2016-01-01
+	# - ted.watt.20201120.2332Z.sql.bz2 most recent partial from 2016-01-01
+	# Phase-2 verification
+	for SNAPSHOTFILE in ./data/archive/mirror/ted/ted.watt*.sql.bz2; do
 		echo
 		echo "-=-= Restoring database from snapshot: ${SNAPSHOTFILE}"
 		restoreSnapshot;
@@ -44,12 +51,7 @@ restoreSnapshot() {
 
 	echo "- Drop tables watt and ted_native before restore, if present"
 	echo 'drop table if exists ted_native;' | $mysqlExecCmd
-	echo 'drop table if exists ted_service;' | $mysqlExecCmd
 	echo 'drop table if exists watt;'| $mysqlExecCmd
-	echo 'drop table if exists watt_day;'| $mysqlExecCmd
-	echo 'drop table if exists watt_hour;' | $mysqlExecCmd
-	echo 'drop table if exists watt_minute;' | $mysqlExecCmd
-	echo 'drop table if exists watt_tensec;' | $mysqlExecCmd
 
 	echo "- Show remaining tables, before restore"
 	echo 'show tables;' | $mysqlExecCmd
@@ -59,12 +61,10 @@ restoreSnapshot() {
 	time bzcat  ${SNAPSHOTFILE} | $mysqlExecCmd
 	echo
 
-	echo "- Expect something recent in ted_native table"
-	echo "select min(stamp),max(stamp),count(*) from ted_native" | $mysqlExecCmd
 	echo "- Expect something recent in watt table"
 	echo "select min(stamp),max(stamp),count(*) from watt" | $mysqlExecCmd
 	echo
-	echo "- run mysqlrestore"
+	echo "- run mysql restore"
 	go run cmd/mysqlrestore/mysqlrestore.go
 }
 

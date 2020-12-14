@@ -57,7 +57,8 @@ func NewReader(db *sqlx.DB, tableName string) *Reader {
 		TableName: tableName,
 		Epoch:     AllTime,
 		MaxRows:   AboutADay,
-		Batch:     defaultSliceCapacity,
+		// MaxRows: 10000, // faster for old MyISam restores
+		Batch: defaultSliceCapacity,
 	}
 }
 

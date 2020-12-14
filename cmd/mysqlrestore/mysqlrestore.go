@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log"
 
 	"github.com/daneroo/go-ted1k/ephemeral"
@@ -8,6 +9,7 @@ import (
 	"github.com/daneroo/go-ted1k/logsetup"
 	"github.com/daneroo/go-ted1k/merge"
 	"github.com/daneroo/go-ted1k/mysql"
+	"github.com/daneroo/go-ted1k/postgres"
 	"github.com/daneroo/go-ted1k/progress"
 	"github.com/daneroo/go-ted1k/types"
 	_ "github.com/go-sql-driver/mysql"
@@ -15,6 +17,8 @@ import (
 
 const (
 	myCredentials = "ted:secret@tcp(0.0.0.0:3306)/ted"
+	// pgCredentials    = "postgres://postgres:secret@127.0.0.1:5432/ted"
+	pgCredentials = "postgres://postgres:secret@0.0.0.0:5432/ted"
 )
 
 func main() {
@@ -24,8 +28,28 @@ func main() {
 	db := mysql.Setup([]string{}, myCredentials)
 	defer db.Close()
 
-	// mysql
+	conn := postgres.Setup(context.Background(), []string{"watt"}, pgCredentials)
+	defer conn.Close(context.Background())
+
+	// phase-2 (restore mysql/watt to postgres)
 	if true {
+		// pre-phase-2:json->postgres (jsonl-ted-rollup.20150928.1006)
+		// doTest("jsonl -> postgres", jsonl.NewReader(), postgres.NewWriter(conn, "watt"))
+		// verify("jsonl <-> postgres", jsonl.NewReader(), postgres.NewReader(conn, "watt"))
+
+		// Phase-2
+		// verify and copy to postgres
+		// verify("mysql(watt) <-> postgres", mysql.NewReader(db, "watt"), postgres.NewReader(conn, "watt"))
+		// doTest("mysql(watt) -> postgres", mysql.NewReader(db, "watt"), postgres.NewWriter(conn, "watt"))
+
+		// verify only
+		verify("mysql(watt) <-> postgres", mysql.NewReader(db, "watt"), postgres.NewReader(conn, "watt"))
+
+	}
+
+	// phase-1 (restore compare to json to watt and ted_native)
+	if false {
+		// pre phase-1
 		// merge ted_native over watt (from ted.20150928.1006.sql.bz2)
 		// doTest("mysql(ted_native) -> mysql(watt)", mysql.NewReader(db, "ted_native"), mysql.NewWriter(db, "watt"))
 		// now dump the combined jsonl
