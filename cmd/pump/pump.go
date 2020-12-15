@@ -35,6 +35,14 @@ func main() {
 	defer conn.Close(context.Background())
 	sh := shell.NewShell("localhost:5001")
 
+	// postgres to ipfs
+	// fmt.Println()
+	// iw := ipfs.NewWriter(sh)
+	// doTest("postgres -> ipfs", postgres.NewReader(conn, "watt"), iw)
+	// dirCid := iw.Dw.Dir
+	// log.Printf("CID: %s\n", dirCid)
+	// verify("postgres <-> ipfs", postgres.NewReader(conn, "watt"), ipfs.NewReader(sh, dirCid))
+
 	// ephemeral
 	if true {
 		fmt.Println()
