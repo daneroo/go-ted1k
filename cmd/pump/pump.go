@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
+	"time"
 
 	"github.com/daneroo/go-ted1k/ephemeral"
 	"github.com/daneroo/go-ted1k/ipfs"
@@ -19,7 +21,9 @@ import (
 )
 
 const (
-	myCredentials = "ted:secret@tcp(0.0.0.0:3306)/ted"
+	// myCredentials = "ted:secret@tcp(0.0.0.0:3306)/ted"
+	myCredentials = "root@tcp(darwin.imetrical.com:3306)/ted"
+
 	// pgCredentials    = "postgres://postgres:secret@127.0.0.1:5432/ted"
 	pgCredentials = "postgres://postgres:secret@0.0.0.0:5432/ted"
 )
@@ -28,7 +32,8 @@ func main() {
 	logsetup.SetupFormat()
 	log.Printf("Starting TED1K pump\n") // TODO(daneroo): add version,buildDate
 
-	tableNames := []string{"watt", "watt2"}
+	// tableNames := []string{"watt", "watt2"}
+	tableNames := []string{}
 	db := mysql.Setup(tableNames, myCredentials)
 	defer db.Close()
 	conn := postgres.Setup(context.Background(), tableNames, pgCredentials)
@@ -42,6 +47,20 @@ func main() {
 	// dirCid := iw.Dw.Dir
 	// log.Printf("CID: %s\n", dirCid)
 	// verify("postgres <-> ipfs", postgres.NewReader(conn, "watt"), ipfs.NewReader(sh, dirCid))
+
+	// mysql (remote) -> postgres
+	if true {
+		myReader := mysql.NewReader(db, "watt")
+		myReader.Epoch = time.Now().Add(-1 * 24 * time.Hour)
+		log.Printf("Reading MySQL since %s\n", myReader.Epoch)
+		pgReader := postgres.NewReader(conn, "watt")
+		pgReader.Epoch = myReader.Epoch
+		verify("mysql <-> postgres", myReader, pgReader)
+
+		// actually insert
+		// doTest("mysql -> postgres", myReader, postgres.NewWriter(conn, "watt"))
+	}
+	os.Exit(0)
 
 	// ephemeral
 	if true {
