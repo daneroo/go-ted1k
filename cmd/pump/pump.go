@@ -33,20 +33,19 @@ func main() {
 	log.Printf("Starting TED1K pump\n") // TODO(daneroo): add version,buildDate
 
 	// tableNames := []string{"watt", "watt2"}
-	tableNames := []string{}
+	tableNames := []string{"watt"}
 	db := mysql.Setup(tableNames, myCredentials)
 	defer db.Close()
 	conn := postgres.Setup(context.Background(), tableNames, pgCredentials)
 	defer conn.Close(context.Background())
 	sh := shell.NewShell("localhost:5001")
 
-	// postgres to ipfs
-	// fmt.Println()
-	// iw := ipfs.NewWriter(sh)
-	// doTest("postgres -> ipfs", postgres.NewReader(conn, "watt"), iw)
-	// dirCid := iw.Dw.Dir
-	// log.Printf("CID: %s\n", dirCid)
-	// verify("postgres <-> ipfs", postgres.NewReader(conn, "watt"), ipfs.NewReader(sh, dirCid))
+	// // ipfs -> postgres
+	// if true {
+	// 	dirCid := "QmSLJPEZocdPZ99pazEkiJTaf3B1zeBmAQWEr7n9fSNgEu"
+	// 	doTest("ipfs <-> postgres", ipfs.NewReader(sh, dirCid), postgres.NewWriter(conn, "watt"))
+	// }
+	// os.Exit(0)
 
 	// mysql (remote) -> postgres
 	if true {
@@ -61,6 +60,14 @@ func main() {
 		// doTest("mysql -> postgres", myReader, postgres.NewWriter(conn, "watt"))
 	}
 	os.Exit(0)
+
+	// postgres to ipfs
+	// fmt.Println()
+	// iw := ipfs.NewWriter(sh)
+	// doTest("postgres -> ipfs", postgres.NewReader(conn, "watt"), iw)
+	// dirCid := iw.Dw.Dir
+	// log.Printf("CID: %s\n", dirCid)
+	// verify("postgres <-> ipfs", postgres.NewReader(conn, "watt"), ipfs.NewReader(sh, dirCid))
 
 	// ephemeral
 	if true {

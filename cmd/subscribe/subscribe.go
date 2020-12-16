@@ -61,7 +61,10 @@ func main() {
 		log.Fatalf("Unable to subscribe to topic: %s\n", topic)
 	}
 
-	time.Sleep(10 * time.Hour)
+	// time.Sleep(10 * time.Hour)
+	// Sleep forever
+	<-make(chan int)
+
 	// Unsubscribe
 	sub.Unsubscribe()
 
@@ -90,22 +93,25 @@ func receiveMessage(m *message) {
 		if err != nil {
 			log.Println(err)
 		}
-		log.Printf("Received an entry: %+v\n", entry)
+		// log.Printf("Received an entry: %+v\n", entry)
 		go insertEntry(conn, entry)
 	}
 }
 
+var count = 0
+
 func insertEntry(conn *pgx.Conn, entry types.Entry) {
-	log.Printf("Writing an entry: %v\n", entry)
+	count++
+	// log.Printf("Writing an entry: %v\n", entry)
 	sql := fmt.Sprintf("INSERT INTO %s (stamp, watt) VALUES ($1,$2)  ON CONFLICT (stamp) DO NOTHING", pgTablename)
 	entry.Stamp = entry.Stamp.Round(time.Second)
 	vals := []interface{}{entry.Stamp, entry.Watt}
 
 	commandTag, err := conn.Exec(context.Background(), sql, vals...)
 	if err != nil {
-		log.Printf("Unable to insert entry: %v %v\n", entry, err)
+		log.Printf("Unable to insert %d entry: %v %v\n", count, entry, err)
 		return
 	}
-	log.Printf("Wrote an entry: %v, affected rows:%d\n", entry, commandTag.RowsAffected())
+	log.Printf("Wrote an entry: %d %v, affected rows:%d\n", count, entry, commandTag.RowsAffected())
 
 }

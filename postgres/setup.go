@@ -33,14 +33,14 @@ func createTable(ctx context.Context, conn *pgx.Conn, tableName string) {
 		log.Println(err)
 		panic(err)
 	}
-	// sqlCreateHyperFormat := "SELECT create_hypertable('%s', 'stamp')"
-	// sqlCreateHyper := fmt.Sprintf(sqlCreateHyperFormat, tableName)
-	// log.Println(sqlCreateHyper)
-	// _, err = conn.Exec(ctx, sqlCreateHyper)
-	// if err != nil {
-	// 	log.Println(err)
-	// 	// panic(err)
-	// }
+	sqlCreateHyperFormat := "SELECT create_hypertable('%s', 'stamp')"
+	sqlCreateHyper := fmt.Sprintf(sqlCreateHyperFormat, tableName)
+	log.Println(sqlCreateHyper)
+	_, err = conn.Exec(ctx, sqlCreateHyper)
+	if err != nil {
+		log.Println(err)
+		// panic(err)
+	}
 }
 
 func totalCount(ctx context.Context, conn *pgx.Conn) {

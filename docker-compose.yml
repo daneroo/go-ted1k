@@ -15,6 +15,7 @@ services:
     #   # - ./data/mysql:/var/lib/mysql
     #   # Use a defined volume
     #   - mysql-volume:/var/lib/mysql
+    restart: unless-stopped
     env_file:
       - ./MYSQL.env
     ports:
@@ -25,10 +26,36 @@ services:
     image: timescale/timescaledb:1.7.4-pg12
     # volumes:
     #   - ./data/timescale:/var/lib/postgresql/data
+    restart: unless-stopped
     env_file:
       - ./PG.env
     ports:
       - 5432:5432 # not exposed in prod ?
+
+  hasura:
+    image: hasura/graphql-engine:v1.3.3
+    ports:
+    - "8888:8080"
+    depends_on:
+    - "timescale"
+    restart: unless-stopped
+    env_file:
+      - ./HASURA.env
+    command:
+      - graphql-engine
+      - serve
+      - --enable-console
+
+  grafana:
+    image: grafana/grafana:7.3.5
+    # volumes:
+    #   - ./data/grafana/grafana.db:/var/lib/grafana/grafana.db
+    depends_on:
+      - "timescale"
+    # links:
+    #   - tedflux
+    ports:
+      - 3000:3000
 
 # tedflux:
 #   # image: tutum/influxdb:0.10
@@ -39,12 +66,3 @@ services:
 #   ports:
 #     - "8083:8083"
 #     - "8086:8086"
-
-# grafana:
-#   image: grafana/grafana
-#   # volumes:
-#   #   - ./data/grafana/grafana.db:/var/lib/grafana/grafana.db
-#   links:
-#     - tedflux
-#   ports:
-#     - 3000:3000
