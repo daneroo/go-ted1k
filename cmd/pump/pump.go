@@ -57,7 +57,8 @@ func main() {
 		verify("mysql <-> postgres", myReader, pgReader)
 
 		// actually insert
-		// doTest("mysql -> postgres", myReader, postgres.NewWriter(conn, "watt"))
+		// Move this to subscribeAndSync
+		doTest("mysql -> postgres", myReader, postgres.NewWriter(conn, "watt"))
 	}
 	os.Exit(0)
 

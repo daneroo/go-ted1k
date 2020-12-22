@@ -93,13 +93,14 @@ func receiveMessage(m *message) {
 		if err != nil {
 			log.Println(err)
 		}
-		// log.Printf("Received an entry: %+v\n", entry)
-		go insertEntry(conn, entry)
+		// no longer called in a go routine
+		insertEntry(conn, entry)
 	}
 }
 
 var count = 0
 
+// If I want to invoke from go routine, should use a connection pool
 func insertEntry(conn *pgx.Conn, entry types.Entry) {
 	count++
 	// log.Printf("Writing an entry: %v\n", entry)

@@ -3,13 +3,14 @@
 ## TODO
 
 - Bring back Evernote TODO to here...
-- script ALL mysql restores -> jsonl
 - [Separate e2e tests](https://stackoverflow.com/questions/25965584/separating-unit-tests-and-integration-tests-in-go/25970712)
+- subscribe: reconnect on conn error(s)
+  - <https://docs.docker.com/compose/compose-file/compose-file-v2/#healthcheck>
 - [docker-compose composition](https://docs.docker.com/compose/extends/)
 - Verify(eph,eph) - has a timing bug for output Verified before .. took..
 - Consider byDay as final format 
   - Document file layout and format (IPFS/jsonl) including file names and aggregation directories
-- Write to ipfs byDay:~650k/s vs byMonth:1.0M/s (same to a lesser extent with json) 930k/s vs 950k/s
+  - Write to ipfs byDay:~650k/s vs byMonth:1.0M/s (same to a lesser extent with json) 930k/s vs 950k/s
 - channels of slices `chan []types.Entry`
   - Extract slice manipulation
 - Verify and **merge** - for faster inserts
@@ -58,6 +59,21 @@ The aggregation into a final rollup of all legacy snapshots was performed based 
 The detailed aggregation logs and process are found in the [RESTORE-log.md](RESTORE-log.md) file
 
 The final rollup archive: `ted.20201120.2332Z.rollup-clean.jsonl.tar.bz2`, with IPFS/CID:`QmSLJPEZocdPZ99pazEkiJTaf3B1zeBmAQWEr7n9fSNgEu`
+
+## Setup tips
+
+### nats
+
+- starts a nats image with websocket support
+- pass in a websocket enabled configuration
+- 4222 is for clients.
+- 6222 is a routing port for clustering.
+- 8222 is an HTTP management port for information reporting.
+- 9222 is for websocket clients
+
+```bash
+docker run -it --rm -p 4222:4222 -p 8222:8222 -p 9222:9222 -v $(pwd)/data/nats/nats-server.conf:/nats/conf/nats-server.conf --name nats synadia/nats-server:nightly
+```
 
 ### IPFS
 
