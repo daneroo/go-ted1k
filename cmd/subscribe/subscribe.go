@@ -17,7 +17,7 @@ const (
 	// myCredentials = "ted:secret@tcp(0.0.0.0:3306)/ted"
 	pgCredentials      = "postgres://postgres:secret@0.0.0.0:5432/ted"
 	pgTablename        = "watt"
-	natsURL            = "nats://nats.dl.imetrical.com:4222"
+	natsURL            = "nats://nats.ts.imetrical.com:4222"
 	natsConnectionName = "subscribe.ted1k"
 	topic              = "im.qcic.heartbeat"
 	host               = natsConnectionName

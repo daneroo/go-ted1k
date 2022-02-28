@@ -24,8 +24,8 @@ services:
   # docker run -d --name timescaledb -p 5432:5432 -e POSTGRES_PASSWORD=password timescale/timescaledb:1.7.4-pg12
   timescale:
     image: timescale/timescaledb:1.7.4-pg12
-    # volumes:
-    #   - ./data/timescale:/var/lib/postgresql/data
+    volumes:
+      - ./data/timescale:/var/lib/postgresql/data
     restart: unless-stopped
     env_file:
       - ./PG.env
@@ -48,8 +48,8 @@ services:
 
   grafana:
     image: grafana/grafana:7.3.5
-    # volumes:
-    #   - ./data/grafana/grafana.db:/var/lib/grafana/grafana.db
+    volumes:
+      - ./data/grafana/grafana.db:/var/lib/grafana/grafana.db
     depends_on:
       - "timescale"
     # links:

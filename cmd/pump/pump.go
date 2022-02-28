@@ -50,7 +50,7 @@ func main() {
 	// mysql (remote) -> postgres
 	if true {
 		myReader := mysql.NewReader(db, "watt")
-		myReader.Epoch = time.Now().Add(-1 * 24 * time.Hour)
+		myReader.Epoch = time.Now().Add(-100 * 24 * time.Hour)
 		log.Printf("Reading MySQL since %s\n", myReader.Epoch)
 		pgReader := postgres.NewReader(conn, "watt")
 		pgReader.Epoch = myReader.Epoch
