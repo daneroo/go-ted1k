@@ -1,5 +1,10 @@
 # Ted1k with Go - data pump
 
+- 2022-10-09 Moved this to gateway 
+  - `sudo snap install go --classic` on gateway ubuntu host
+    - until I containerize pump and subscribe.
+  - also copied over `data/grafana/grafana.db` (`grafana-2022-10-09.db`)
+
 ## TODO
 
 - Bring back Evernote TODO to here...
@@ -8,7 +13,7 @@
   - <https://docs.docker.com/compose/compose-file/compose-file-v2/#healthcheck>
 - [docker-compose composition](https://docs.docker.com/compose/extends/)
 - Verify(eph,eph) - has a timing bug for output Verified before .. took..
-- Consider byDay as final format 
+- Consider byDay as final format
   - Document file layout and format (IPFS/jsonl) including file names and aggregation directories
   - Write to ipfs byDay:~650k/s vs byMonth:1.0M/s (same to a lesser extent with json) 930k/s vs 950k/s
 - channels of slices `chan []types.Entry`
@@ -36,8 +41,10 @@ docker-compose up -d
 # unit tests
 go test -v ./...
 
+# run subscribe ( in screen )
+time go run cmd/subscribe/subscribe.go
 # run the pump
-go run cmd/pump/pump.go
+time go run cmd/pump/pump.go
 ```
 
 ## History
@@ -100,6 +107,7 @@ SELECT create_hypertable('watt', 'stamp')
 ## JSON
 
 ### Decoding / UnMarshaling
+
 For decoding which, is a bottleneck, we looked at many streaming modules (ffjson/fastjson, etc), not many of which can properly handle our json per line format well, so we stuck with the `encoding/json` implementation
 
 ```
@@ -141,7 +149,7 @@ select mean(value)*24/1000 into kwh_1d from watt where time > '2015-09-01' group
 This was performed a an ubuntu:20.04 VM (Proxmox), on a mac mini 2012/8G/2TB-SSD, databases/ipfs running in docker in the same VM. The `ephemeral` data set is a synthetic 31M data points representing~1year of second data; 100MB/month, 1.35GB total
 
 ```bash
-$ time go run cmd/pump/pump.go 
+$ time go run cmd/pump/pump.go
 2020-12-10T17:52:39.982Z - Starting TED1K pump
 2020-12-10T17:52:39.991Z - Connected to MySQL
 2020-12-10T17:52:40.122Z - Connected to Postgres
@@ -192,13 +200,12 @@ $ time go run cmd/pump/pump.go
 real	17m11.313s
 ```
 
-
 ### Should check monthly sums after snapshots
 
 2015-09-28:
 
 |    format |  avg | total |
-| --------: | ---: | ----: |
+|----------:|-----:|------:|
 |    .jsonl | 100M | 9026M |
 | .jsonl.gz |   7M |  629M |
 | jsonl.bz2 |   5M |  384M |

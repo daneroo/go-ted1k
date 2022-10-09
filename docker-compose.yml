@@ -5,21 +5,21 @@ version: "3.8"
 #   mysql-volume:
 
 services:
-  mysql:
-    # image: mysql:5.7
-    image: mysql:8.0
-    # volumes:
-    #   # Just specify a path and let the Engine create a volume
-    #   # - /var/lib/mysql
-    #   # use a relative host path
-    #   # - ./data/mysql:/var/lib/mysql
-    #   # Use a defined volume
-    #   - mysql-volume:/var/lib/mysql
-    restart: unless-stopped
-    env_file:
-      - ./MYSQL.env
-    ports:
-      - 3306:3306 # not exposed in prod ?
+  # mysql:
+  #   # image: mysql:5.7
+  #   image: mysql:8.0
+  #   # volumes:
+  #   #   # Just specify a path and let the Engine create a volume
+  #   #   # - /var/lib/mysql
+  #   #   # use a relative host path
+  #   #   # - ./data/mysql:/var/lib/mysql
+  #   #   # Use a defined volume
+  #   #   - mysql-volume:/var/lib/mysql
+  #   restart: unless-stopped
+  #   env_file:
+  #     - ./MYSQL.env
+  #   ports:
+  #     - 3306:3306 # not exposed in prod ?
 
   # docker run -d --name timescaledb -p 5432:5432 -e POSTGRES_PASSWORD=password timescale/timescaledb:1.7.4-pg12
   timescale:
@@ -32,19 +32,19 @@ services:
     ports:
       - 5432:5432 # not exposed in prod ?
 
-  hasura:
-    image: hasura/graphql-engine:v1.3.3
-    ports:
-    - "8888:8080"
-    depends_on:
-    - "timescale"
-    restart: unless-stopped
-    env_file:
-      - ./HASURA.env
-    command:
-      - graphql-engine
-      - serve
-      - --enable-console
+  # hasura:
+  #   image: hasura/graphql-engine:v1.3.3
+  #   ports:
+  #   - "8888:8080"
+  #   depends_on:
+  #   - "timescale"
+  #   restart: unless-stopped
+  #   env_file:
+  #     - ./HASURA.env
+  #   command:
+  #     - graphql-engine
+  #     - serve
+  #     - --enable-console
 
   grafana:
     image: grafana/grafana:7.3.5
@@ -56,7 +56,6 @@ services:
     #   - tedflux
     ports:
       - 3000:3000
-
 # tedflux:
 #   # image: tutum/influxdb:0.10
 #   image: tutum/influxdb:0.9
