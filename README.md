@@ -4,6 +4,7 @@
   - `sudo snap install go --classic` on gateway ubuntu host
     - until I containerize pump and subscribe.
   - also copied over `data/grafana/grafana.db` (`grafana-2022-10-09.db`)
+    - `sudo chown 472:0 data/grafana/grafana.db`
   - creating database for startup
     - `docker exec -it go-ted1k_timescale_1 ash`
       - `psql -U postgres`
