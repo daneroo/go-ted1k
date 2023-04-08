@@ -5,6 +5,30 @@ version: "3.8"
 #   mysql-volume:
 
 services:
+  # docker run -d --name timescaledb -p 5432:5432 -e POSTGRES_PASSWORD=password timescale/timescaledb:1.7.4-pg12
+  timescale:
+    image: timescale/timescaledb:latest-pg14
+    volumes:
+      - ./data/timescale:/var/lib/postgresql/data
+    restart: unless-stopped
+    env_file:
+      - ./PG.env
+    ports:
+      - 5432:5432 # not exposed in prod ?
+
+  grafana:
+    # image: grafana/grafana:7.3.5
+    # image: grafana/grafana:8.5.22
+    image: grafana/grafana-oss:9.4.7
+    volumes:
+      - ./data/grafana/grafana.db:/var/lib/grafana/grafana.db
+    depends_on:
+      - "timescale"
+    # links:
+    #   - tedflux
+    ports:
+      - 3000:3000
+
   # mysql:
   #   # image: mysql:5.7
   #   image: mysql:8.0
@@ -21,18 +45,6 @@ services:
   #   ports:
   #     - 3306:3306 # not exposed in prod ?
 
-  # docker run -d --name timescaledb -p 5432:5432 -e POSTGRES_PASSWORD=password timescale/timescaledb:1.7.4-pg12
-  timescale:
-    # image: timescale/timescaledb:1.7.4-pg12
-    image: timescale/timescaledb:latest-pg14
-    volumes:
-      - ./data/timescale:/var/lib/postgresql/data
-    restart: unless-stopped
-    env_file:
-      - ./PG.env
-    ports:
-      - 5432:5432 # not exposed in prod ?
-
   # hasura:
   #   image: hasura/graphql-engine:v1.3.3
   #   ports:
@@ -46,23 +58,3 @@ services:
   #     - graphql-engine
   #     - serve
   #     - --enable-console
-
-  grafana:
-    image: grafana/grafana:7.3.5
-    volumes:
-      - ./data/grafana/grafana.db:/var/lib/grafana/grafana.db
-    depends_on:
-      - "timescale"
-    # links:
-    #   - tedflux
-    ports:
-      - 3000:3000
-# tedflux:
-#   # image: tutum/influxdb:0.10
-#   image: tutum/influxdb:0.9
-#   hostname: tedflux
-#   environment:
-#     - PRE_CREATE_DB=ted
-#   ports:
-#     - "8083:8083"
-#     - "8086:8086"

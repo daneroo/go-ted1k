@@ -1,12 +1,13 @@
 # Ted1k with Go - data pump
 
-- 2023-04-08 Moving to galois
+- 2023-04-08 Moving to `galois` for dev and `d1-px1` for prod
 
   - snapshot grafana-2023-04-08.db (also copied to dirac)
   - recreated database
     - `docker exec -it go-ted1k_timescale_1 ash`
       - `psql -U postgres`
         - `postgres=# CREATE DATABASE ted;`
+  - dockerize pump and subscribe (subscribe should exit on error, wait for restart?)
 
 - 2022-10-09 Moved this to gateway
   - `sudo snap install go --classic` on gateway ubuntu host
@@ -21,11 +22,13 @@
 ## TODO
 
 - [ ] Rename master to main; drop develop
-- [ ] add Github actions (go build, go test, go vet, go fmt, go lint, go mod tidy, go mod verify)
-- [ ] Move to galois
+- [ ] add Github actions
+- [ ] Move to galois/d1-px1
   - [x] upgrade timescale
   - [ ] upgrade grafana
+    - [ ] docs: <https://grafana.com/docs/grafana/latest/setup-grafana/installation/docker/>
     - [ ] with declarative config - including Energy dashboard
+  - [ ] clean up data/\*Old
 - Bring back Evernote TODO to here...
 - [Separate e2e tests](https://stackoverflow.com/questions/25965584/separating-unit-tests-and-integration-tests-in-go/25970712)
 - subscribe: reconnect on conn error(s)
@@ -51,6 +54,16 @@
 ## Migrating grafana and timescale, dockerize pump and subscribe
 
 In the end I should be able to recreate from scratch with `docker-compose up -d` with minimal other commands.
+
+I was able to export the Energy dash board, but we need to recreate the data source, alarms, notification channel,...
+
+So we keep the grafana.db database snapshot method (for now).
+
+- migrating 7.3.5 to 9.4.7 directly
+- datasource: set database name to `ted`
+- change alerting threshold to 10000 watts evaluated every 1m alarm when triggered for 5m
+- Test contact point
+- Change Ted1k - Watt Panel to Time series Visualization (suggested migration)
 
 Timescale [docs](https://docs.timescale.com/self-hosted/latest/install/installation-docker/#install-self-hosted-timescaledb-from-a-pre-built-container) suggest using `timescale/timescaledb:latest-pg14`.
 
@@ -139,6 +152,8 @@ ipfs pin ls --type recursive | cut -d' ' -f1 | xargs -n1 ipfs pin rm
 ipfs repo gc
 ```
 
+### Grafana
+
 ### Postgres/TimescaleDB
 
 ```sql
@@ -162,7 +177,7 @@ SELECT create_hypertable('watt', 'stamp') WHERE NOT EXISTS (SELECT 1 FROM _times
 
 For decoding which, is a bottleneck, we looked at many streaming modules (ffjson/fastjson, etc), not many of which can properly handle our json per line format well, so we stuck with the `encoding/json` implementation
 
-```
+```go
 for (*json.Decoder).More() {
   err := dec.Decode(&entry)
 }
@@ -170,7 +185,7 @@ for (*json.Decoder).More() {
 
 We did get a slight improvement (`540k/s -> 610k/s`) from `easyjson` by generating a `json.Unmarshaler` interface:
 
-```
+```go
 go get -u github.com/mailru/easyjson/...
 ${GOPATH-~/go}/bin/easyjson types/types.go
 ```
@@ -249,7 +264,7 @@ $ time go run cmd/pump/pump.go
 2020-12-10T18:09:49.996Z - Verified ephemeral <-> mysql:
 2020-12-10T18:09:49.996Z - [2020-01-01T00:00:00Z, 2020-12-29T14:38:45Z](31415926) Equal
 
-real	17m11.313s
+real  17m11.313s
 ```
 
 ### Should check monthly sums after snapshots

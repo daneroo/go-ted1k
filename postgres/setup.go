@@ -59,7 +59,7 @@ func createTable(ctx context.Context, conn *pgx.Conn, tableName string) {
 	}
 }
 
-func totalCount(ctx context.Context, conn *pgx.Conn) {
+func TotalCount(ctx context.Context, conn *pgx.Conn) {
 	var totalCount int
 	err := conn.QueryRow(ctx, "SELECT COUNT(*) FROM watt").Scan(&totalCount)
 	if err != nil {

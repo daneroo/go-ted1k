@@ -39,6 +39,10 @@ func main() {
 	conn := postgres.Setup(context.Background(), tableNames, pgCredentials)
 	defer conn.Close(context.Background())
 	sh := shell.NewShell("localhost:5001")
+	if sh == nil {
+		// just to use the sh variable
+		log.Fatal("IPFS shell is nil")
+	}
 
 	// // ipfs -> postgres
 	// if true {

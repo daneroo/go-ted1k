@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/daneroo/go-ted1k/types"
@@ -30,13 +31,13 @@ var (
 	FarFuture = time.Date(2037, time.January, 0, 0, 0, 0, 0, time.UTC)
 )
 
-// Reader needs a NewContructor()...is ...
+// Reader needs a NewConstructor()...is ...
 type Reader struct {
 	Conn      *pgx.Conn
 	TableName string
 	// Epoch is the timestamp from which we start reading
 	Epoch time.Time
-	// MaxRows is the max number rows readb from database per query (LIMIT)
+	// MaxRows is the max number rows read from database per query (LIMIT)
 	MaxRows int
 	// Batch is the capacity of a single slice []types.Entry
 	Batch int
@@ -103,10 +104,11 @@ func (r *Reader) readRows(startTime time.Time) (time.Time, int) {
 	sql := fmt.Sprintf("SELECT stamp,watt FROM %s where stamp>$1 ORDER BY stamp ASC LIMIT $2", r.TableName)
 
 	rows, err := r.Conn.Query(context.Background(), sql, startTime, r.MaxRows)
-	// TODO(daneroo) error handling
-	// if err != nil {
-	// 	return err
-	// }
+	// TODO(daneroo) better error handling
+	if err != nil {
+		log.Printf("readRows: %s", err)
+		panic(err)
+	}
 	defer rows.Close()
 	util.Checkerr(err)
 
