@@ -5,6 +5,19 @@ version: "3.8"
 #   mysql-volume:
 
 services:
+  subscribe:
+    build:
+      dockerfile: "Dockerfile.subscribe"
+      context: .
+    environment:
+      PGCONN: "postgres://postgres:secret@timescale:5432/ted"
+    # Later for exporting jsonl
+    # volumes:
+    #   - ./data/subscribe/export:/export
+    restart: unless-stopped
+    depends_on:
+      - "timescale"
+
   # docker run -d --name timescaledb -p 5432:5432 -e POSTGRES_PASSWORD=password timescale/timescaledb:1.7.4-pg12
   timescale:
     image: timescale/timescaledb:latest-pg14

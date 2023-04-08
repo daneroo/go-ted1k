@@ -1,0 +1,16 @@
+# Build stage
+FROM golang:1.20-alpine AS build
+WORKDIR /app
+COPY go.mod .
+COPY go.sum .
+RUN go version && go mod download
+
+COPY . .
+RUN go build cmd/subscribe/subscribe.go \
+    && go build cmd/pump/pump.go
+
+# Final stage
+FROM alpine:3.17
+WORKDIR /app
+COPY --from=build /app/subscribe /app/pump ./
+CMD ["./subscribe"]

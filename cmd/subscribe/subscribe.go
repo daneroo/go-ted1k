@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 	"time"
 
 	"github.com/daneroo/go-ted1k/logsetup"
@@ -15,12 +16,12 @@ import (
 
 const (
 	// myCredentials = "ted:secret@tcp(0.0.0.0:3306)/ted"
-	pgCredentials      = "postgres://postgres:secret@0.0.0.0:5432/ted"
-	pgTablename        = "watt"
-	natsURL            = "nats://nats.ts.imetrical.com:4222"
-	natsConnectionName = "subscribe.ted1k"
-	topic              = "im.qcic.heartbeat"
-	host               = natsConnectionName
+	pgCredentialsDefault = "postgres://postgres:secret@0.0.0.0:5432/ted"
+	pgTablename          = "watt"
+	natsURL              = "nats://nats.ts.imetrical.com:4222"
+	natsConnectionName   = "subscribe.ted1k"
+	topic                = "im.qcic.heartbeat"
+	host                 = natsConnectionName
 )
 
 // should NOT be global!!
@@ -30,6 +31,11 @@ func main() {
 	logsetup.SetupFormat()
 	log.Printf("Starting TED1K subscribe\n") // TODO(daneroo): add version,buildDate
 
+	// connStr = "postgres://username:password@localhost:5432/mydb"
+	pgCredentials := os.Getenv("PGCONN")
+	if pgCredentials == "" {
+		pgCredentials = pgCredentialsDefault
+	}
 	conn = postgres.Setup(context.Background(), []string{pgTablename}, pgCredentials)
 	defer conn.Close(context.Background())
 
@@ -43,14 +49,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("Unable to connect to Nats: %s\n", natsURL)
 	}
-
-	// Regular subscription (not encoded)
-	// sub, err := nc.Subscribe(topic, func(m *nats.Msg) {
-	// 	fmt.Printf("Received a message: %s\n", string(m.Data))
-	// })
-	// if err != nil {
-	// 	log.Fatalf("Unable to subscribe to topic: %s\n", topic)
-	// }
 
 	c, _ := nats.NewEncodedConn(nc, nats.JSON_ENCODER)
 
@@ -111,7 +109,12 @@ func insertEntry(conn *pgx.Conn, entry types.Entry) {
 	commandTag, err := conn.Exec(context.Background(), sql, vals...)
 	if err != nil {
 		log.Printf("Unable to insert %d entry: %v %v\n", count, entry, err)
-		return
+		// TODO(daneroo): more graceful handling of restarts
+		// Sleep then panic:
+		log.Println("Exiting subscribe in 5 seconds")
+		time.Sleep(5 * time.Second)
+		os.Exit(1)
+		// return
 	}
 	log.Printf("Wrote an entry: %d %v, affected rows:%d\n", count, entry, commandTag.RowsAffected())
 

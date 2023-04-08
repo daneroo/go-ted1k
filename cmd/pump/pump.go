@@ -25,7 +25,7 @@ const (
 	myCredentials = "root@tcp(darwin.imetrical.com:3306)/ted"
 
 	// pgCredentials    = "postgres://postgres:secret@127.0.0.1:5432/ted"
-	pgCredentials = "postgres://postgres:secret@0.0.0.0:5432/ted"
+	pgCredentialsDefault = "postgres://postgres:secret@0.0.0.0:5432/ted"
 )
 
 func main() {
@@ -36,6 +36,12 @@ func main() {
 	tableNames := []string{"watt"}
 	db := mysql.Setup(tableNames, myCredentials)
 	defer db.Close()
+
+	pgCredentials := os.Getenv("PGCONN")
+	if pgCredentials == "" {
+		pgCredentials = pgCredentialsDefault
+	}
+
 	conn := postgres.Setup(context.Background(), tableNames, pgCredentials)
 	defer conn.Close(context.Background())
 	sh := shell.NewShell("localhost:5001")

@@ -25,10 +25,9 @@
 - [ ] add Github actions
 - [ ] Move to galois/d1-px1
   - [x] upgrade timescale
-  - [ ] upgrade grafana
-    - [ ] docs: <https://grafana.com/docs/grafana/latest/setup-grafana/installation/docker/>
-    - [ ] with declarative config - including Energy dashboard
+  - [x] upgrade grafana
   - [ ] clean up data/\*Old
+  - [ ] snap uninstall go on d1-px1 / gateway
 - Bring back Evernote TODO to here...
 - [Separate e2e tests](https://stackoverflow.com/questions/25965584/separating-unit-tests-and-integration-tests-in-go/25970712)
 - subscribe: reconnect on conn error(s)
@@ -64,15 +63,19 @@ So we keep the grafana.db database snapshot method (for now).
 - change alerting threshold to 10000 watts evaluated every 1m alarm when triggered for 5m
 - Test contact point
 - Change Ted1k - Watt Panel to Time series Visualization (suggested migration)
+- clean up snap install go on d1-px1 after dockerized pump and subscribe
 
-Timescale [docs](https://docs.timescale.com/self-hosted/latest/install/installation-docker/#install-self-hosted-timescaledb-from-a-pre-built-container) suggest using `timescale/timescaledb:latest-pg14`.
+  Timescale [docs](https://docs.timescale.com/self-hosted/latest/install/installation-docker/#install-self-hosted-timescaledb-from-a-pre-built-container) suggest using `timescale/timescaledb:latest-pg14`.
+
+On d1-px1:
 
 ```bash
 docker compose up -d; docker compose down # create directories
 chmod 640 grafana-2023-04-08.db
-scp -p grafana-2023-04-08.db data/grafana/grafana.db
+scp -p grafana-2023-04-08-new.db data/grafana/grafana.db
 docker compose up -d
 
+sudo snap install go --classic
 # copy last 100 days
 go run cmd/pump/pump.go
 # subscribe to new events
@@ -155,6 +158,16 @@ ipfs repo gc
 ### Grafana
 
 ### Postgres/TimescaleDB
+
+You should just need to:
+
+```bash
+docker compose exec -it timescale psql -U postgres
+ CREATE DATABASE ted;
+```
+
+The commands should setup the tables etc...
+So this should not be necessary anymore:
 
 ```sql
 CREATE DATABASE ted;
