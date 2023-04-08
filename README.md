@@ -1,6 +1,14 @@
 # Ted1k with Go - data pump
 
-- 2022-10-09 Moved this to gateway 
+- 2023-04-08 Moving to galois
+
+  - snapshot grafana-2023-04-08.db (also copied to dirac)
+  - recreated database
+    - `docker exec -it go-ted1k_timescale_1 ash`
+      - `psql -U postgres`
+        - `postgres=# CREATE DATABASE ted;`
+
+- 2022-10-09 Moved this to gateway
   - `sudo snap install go --classic` on gateway ubuntu host
     - until I containerize pump and subscribe.
   - also copied over `data/grafana/grafana.db` (`grafana-2022-10-09.db`)
@@ -12,6 +20,10 @@
 
 ## TODO
 
+- [ ] Move to galois
+  - [x] upgrade timescale
+  - [ ] upgrade grafana
+    - [ ] with declarative config - including Energy dashboard
 - Bring back Evernote TODO to here...
 - [Separate e2e tests](https://stackoverflow.com/questions/25965584/separating-unit-tests-and-integration-tests-in-go/25970712)
 - subscribe: reconnect on conn error(s)
@@ -33,6 +45,36 @@
 - progress on nats - with client
 - Gather performance/integrity and history in markdown (PERFORMANCE.md)
 - [See Evernote](https://www.evernote.com/shard/s60/nl/1773032759/ae1b9921-7e85-4b75-a21b-86be7d524295/)
+
+## Migrating grafana and timescale, dockerize pump and subscribe
+
+In the end I should be able to recreate from scratch with `docker-compose up -d` with minimal other commands.
+
+Timescale [docs](https://docs.timescale.com/self-hosted/latest/install/installation-docker/#install-self-hosted-timescaledb-from-a-pre-built-container) suggest using `timescale/timescaledb:latest-pg14`.
+
+```bash
+docker compose up -d; docker compose down # create directories
+chmod 640 grafana-2023-04-08.db
+scp -p grafana-2023-04-08.db data/grafana/grafana.db
+docker compose up -d
+
+# copy last 100 days
+go run cmd/pump/pump.go
+# subscribe to new events
+go run cmd/subscribe/subscribe.go
+
+# now move old database, update image to `timescale/timescaledb:latest-pg14`
+mv data/timescale data/timescaleOld
+# docker exec -it timescaledb psql -U postgres
+docker compose exec -it timescale psql -U postgres
+docker compose exec -it timescale psql -U postgres ted
+# postgres=# CREATE DATABASE ted; etc as below
+# Got a WARNING : column type "timestamp without time zone" used for "stamp" does not follow best practices; HINT:  Use datatype TIMESTAMPTZ instead
+# To inspect the database current timezone:
+#   SELECT current_setting('TIMEZONE');
+# or
+#   SELECT * FROM pg_timezone_names WHERE abbrev = current_setting('TIMEZONE');
+```
 
 ## Operations
 
@@ -102,11 +144,14 @@ CREATE DATABASE ted;
 
 CREATE TABLE IF NOT EXISTS watt (
   -- timestamp [ (p) ] with time zone
-  stamp TIMESTAMP WITHOUT TIME ZONE NOT NULL PRIMARY KEY,
+  stamp TIMESTAMPTZ NOT NULL PRIMARY KEY,
   watt integer NOT NULL DEFAULT '0'
 );
--- For timescaledb (must be done on an empty table)
-SELECT create_hypertable('watt', 'stamp')
+-- To inspect the database current timezone: CONFIRM this is UTC
+SELECT current_setting('TIMEZONE');
+-- For timescaledb (can be done on an non empty table, but have not investigated the performance impact)
+SELECT create_hypertable('watt', 'stamp') WHERE NOT EXISTS (SELECT 1 FROM _timescaledb_catalog.hypertable WHERE table_name = 'watt');
+
 ```
 
 ## JSON
@@ -210,7 +255,7 @@ real	17m11.313s
 2015-09-28:
 
 |    format |  avg | total |
-|----------:|-----:|------:|
+| --------: | ---: | ----: |
 |    .jsonl | 100M | 9026M |
 | .jsonl.gz |   7M |  629M |
 | jsonl.bz2 |   5M |  384M |
