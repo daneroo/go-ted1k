@@ -20,6 +20,8 @@
 
 ## TODO
 
+- [ ] Rename master to main; drop develop
+- [ ] add Github actions (go build, go test, go vet, go fmt, go lint, go mod tidy, go mod verify)
 - [ ] Move to galois
   - [x] upgrade timescale
   - [ ] upgrade grafana
