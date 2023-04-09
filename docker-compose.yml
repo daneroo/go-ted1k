@@ -26,8 +26,9 @@ services:
     restart: unless-stopped
     env_file:
       - ./PG.env
-    ports:
-      - 5432:5432 # not exposed in prod ?
+    # No need to expos database port in prod
+    # ports:
+    #   - 5432:5432 # not exposed in prod ?
 
   grafana:
     image: grafana/grafana-oss:9.4.7
@@ -35,8 +36,6 @@ services:
       - ./data/grafana/grafana.db:/var/lib/grafana/grafana.db
     depends_on:
       - "timescale"
-    # links:
-    #   - tedflux
     ports:
       - 3000:3000
 
