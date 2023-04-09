@@ -1,3 +1,10 @@
 {
-  "cSpell.words": ["Checkerr", "datasource", "logsetup", "psql", "TIMESTAMPTZ"]
+  "cSpell.words": [
+    "Checkerr",
+    "datasource",
+    "dockerized",
+    "logsetup",
+    "psql",
+    "TIMESTAMPTZ"
+  ]
 }

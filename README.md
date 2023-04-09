@@ -1,38 +1,26 @@
 # Ted1k with Go - data pump
 
-- 2023-04-08 Moving to `galois` for dev and `d1-px1` for prod
+Although this is a general utility for reading writing ted1k entries from multiple sources,
+It is also the home of our grafana-ted:
 
-  - snapshot grafana-2023-04-08.db (also copied to dirac)
-  - recreated database
-    - `docker exec -it go-ted1k_timescale_1 ash`
-      - `psql -U postgres`
-        - `postgres=# CREATE DATABASE ted;`
-  - dockerize pump and subscribe (subscribe should exit on error, wait for restart?)
+- [grafana-ted is exposed on (through gateway/im-qcic/caddy)](https://grafana-ted.imetrical.com:80)
+  - [Directly on di-px1](http://d1-px1.ts.imetrical.com:3000)
+- subscribe: nats->timescale, also pump:mysql->timescale
 
-- 2022-10-09 Moved this to gateway
-  - `sudo snap install go --classic` on gateway ubuntu host
-    - until I containerize pump and subscribe.
-  - also copied over `data/grafana/grafana.db` (`grafana-2022-10-09.db`)
-    - `sudo chown 472:0 data/grafana/grafana.db`
-  - creating database for startup
-    - `docker exec -it go-ted1k_timescale_1 ash`
-      - `psql -U postgres`
-        - `postgres=# CREATE DATABASE ted;`
+- 2023-04-09 Moved to trunk (main) based development tag v0.1.0
+  - remove source from dirac
+- 2023-04-08 Moved to `d1-px1` (prod), `galois` (dev), dockerized subscribe
+  - upgraded grafana-oss:9.4.7 and timescale/timescaledb:latest-pg14
+- 2022-10-09 Moved to gateway
+- [2016 Evernote](https://www.evernote.com/shard/s60/nl/6925909/ae1b9921-7e85-4b75-a21b-86be7d524295?title=iMetrical-energy%20replacement)
 
 ## TODO
 
-- [ ] Rename master to main; drop develop
+- [ ] subscribe should exit on error, sleep before restart.. better error handling
 - [ ] add Github actions
-- [ ] Move to galois/d1-px1
-  - [x] upgrade timescale
-  - [x] upgrade grafana
-  - [ ] clean up data/\*Old
-  - [ ] snap uninstall go on d1-px1 / gateway
+- ipfs-cluster as pinning service
 - Bring back Evernote TODO to here...
 - [Separate e2e tests](https://stackoverflow.com/questions/25965584/separating-unit-tests-and-integration-tests-in-go/25970712)
-- subscribe: reconnect on conn error(s)
-  - <https://docs.docker.com/compose/compose-file/compose-file-v2/#healthcheck>
-- [docker-compose composition](https://docs.docker.com/compose/extends/)
 - Verify(eph,eph) - has a timing bug for output Verified before .. took..
 - Consider byDay as final format
   - Document file layout and format (IPFS/jsonl) including file names and aggregation directories
@@ -40,76 +28,31 @@
 - channels of slices `chan []types.Entry`
   - Extract slice manipulation
 - Verify and **merge** - for faster inserts
-- ipfs
-  - Powergate / Filecoin - <https://blog.textile.io/hosted-powergate/>
-- flux (at least write) <https://github.com/influxdata/influxdb-client-go#writes>
 - off-by-one error in gaps? add tests
   - progress.Gaps: 2020-05-15T23:59:59Z 2020-05-17T00:00:00Z : 24h0m1s
 - e2e testing (with ephemeral source) in docker-compose
-- progress on nats - with client
 - Gather performance/integrity and history in markdown (PERFORMANCE.md)
-- [See Evernote](https://www.evernote.com/shard/s60/nl/1773032759/ae1b9921-7e85-4b75-a21b-86be7d524295/)
 
-## Migrating grafana and timescale, dockerize pump and subscribe
+## Provisioning Grafana
 
 In the end I should be able to recreate from scratch with `docker-compose up -d` with minimal other commands.
-
-I was able to export the Energy dash board, but we need to recreate the data source, alarms, notification channel,...
-
+I was able to export the Energy dash board, but we are not yet able to recreate the data source, alarms, notification channel,...
 So we keep the grafana.db database snapshot method (for now).
-
-- migrating 7.3.5 to 9.4.7 directly
-- datasource: set database name to `ted`
-- change alerting threshold to 10000 watts evaluated every 1m alarm when triggered for 5m
-- Test contact point
-- Change Ted1k - Watt Panel to Time series Visualization (suggested migration)
-- clean up snap install go on d1-px1 after dockerized pump and subscribe
-
-  Timescale [docs](https://docs.timescale.com/self-hosted/latest/install/installation-docker/#install-self-hosted-timescaledb-from-a-pre-built-container) suggest using `timescale/timescaledb:latest-pg14`.
-
-On d1-px1:
-
-```bash
-docker compose up -d; docker compose down # create directories
-chmod 640 grafana-2023-04-08.db
-scp -p grafana-2023-04-08-new.db data/grafana/grafana.db
-docker compose up -d
-
-sudo snap install go --classic
-# copy last 100 days
-go run cmd/pump/pump.go
-# subscribe to new events
-go run cmd/subscribe/subscribe.go
-
-# now move old database, update image to `timescale/timescaledb:latest-pg14`
-mv data/timescale data/timescaleOld
-# docker exec -it timescaledb psql -U postgres
-docker compose exec -it timescale psql -U postgres
-docker compose exec -it timescale psql -U postgres ted
-# postgres=# CREATE DATABASE ted; etc as below
-# Got a WARNING : column type "timestamp without time zone" used for "stamp" does not follow best practices; HINT:  Use datatype TIMESTAMPTZ instead
-# To inspect the database current timezone:
-#   SELECT current_setting('TIMEZONE');
-# or
-#   SELECT * FROM pg_timezone_names WHERE abbrev = current_setting('TIMEZONE');
-```
 
 ## Operations
 
 ```bash
-# Start backing services
+# Start postgres,grafana ad subscribe services
 docker-compose up -d
-
-# restore a mysqldump snapshot to mysql (see MYSQL.env)
-./restore-db.sh
+docker compose logs -f subscribe
+# Execute pump to load the last 100 days
+time docker compose exec -it subscribe ./pump
 
 # unit tests
 go test -v ./...
 
-# run subscribe ( in screen )
-time go run cmd/subscribe/subscribe.go
-# run the pump
-time go run cmd/pump/pump.go
+# restore a mysqldump snapshot to mysql (see MYSQL.env)
+# ./restore-db.sh
 ```
 
 ## History
@@ -157,6 +100,8 @@ ipfs repo gc
 
 ### Grafana
 
+Move comments from galois/d1-px1 migration
+
 ### Postgres/TimescaleDB
 
 You should just need to:
@@ -166,7 +111,7 @@ docker compose exec -it timescale psql -U postgres
  CREATE DATABASE ted;
 ```
 
-The commands should setup the tables etc...
+The commands (pump,subscribe) should setup the tables etc...
 So this should not be necessary anymore:
 
 ```sql
