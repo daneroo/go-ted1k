@@ -48,7 +48,6 @@ require (
 	github.com/multiformats/go-multibase v0.0.3 // indirect
 	github.com/multiformats/go-multihash v0.0.14 // indirect
 	github.com/multiformats/go-varint v0.0.6 // indirect
-	github.com/nats-io/jwt v1.1.0 // indirect
 	github.com/nats-io/nats-server/v2 v2.1.9 // indirect
 	github.com/nats-io/nkeys v0.1.4 // indirect
 	github.com/nats-io/nuid v1.0.1 // indirect
