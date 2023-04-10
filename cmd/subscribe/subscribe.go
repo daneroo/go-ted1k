@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/signal"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/daneroo/go-ted1k/logsetup"
@@ -43,6 +45,10 @@ var (
 // If while processing the entryQueue:
 // - The queue is empty, the processEntryQueue() function will wait for a signal
 // - If an error occurs, during insertEntry, the entry is put back in the queue and the processing is paused (with capped exponential backoff)
+// When an interrupt signal is received, the program will exit after the entryQueue is empty
+// This is done to ensure that all entries are processed before the program exits
+// However, if the entryQueue is not empty after 20 seconds, the program will exit anyway
+// This can happen if the database is not available, at the same time as the program is being shutdown
 func main() {
 	logsetup.SetupFormat()
 	log.Printf("Starting TED1K subscribe\n") // TODO(daneroo): add version,buildDate
@@ -72,36 +78,64 @@ func main() {
 
 	c, _ := nats.NewEncodedConn(nc, nats.JSON_ENCODER)
 
-	// Encoded subscription
-	sub, err := c.Subscribe(topic, enqueueMessage)
+	// Encoded subscription - we don't need to keep a handle on the subscription since we only close the entire connection
+	_, err = c.Subscribe(topic, enqueueMessage)
 	if err != nil {
 		log.Fatalf("Unable to subscribe to topic: %s\n", topic)
 	}
 
 	go processEntryQueue(context.Background()) // Start goroutine to process queued messages
 
-	// time.Sleep(10 * time.Hour)
-	// Sleep forever
-	<-make(chan int)
+	// Wait for an interrupt signal to gracefully shutdown the program
+	interrupt := make(chan os.Signal, 1)
+	signal.Notify(interrupt, os.Interrupt, syscall.SIGTERM)
 
-	// Unsubscribe
-	sub.Unsubscribe()
+	<-interrupt // Block until an interrupt signal is received
 
-	// Drain
-	sub.Drain()
+	log.Println("Shutdown signal received, exiting...")
 
+	// Nats clean up
 	// Drain connection (Preferred for responders)
-	// Close() not needed if this is called.
+	// This should all be confirmed. I think this is the correct way to do it
+	// "Drain will put a connection into a drain state. All subscriptions will immediately be put into a drain state.
+	//  Upon completion, the publishers will be drained and can not publish any additional messages. Upon draining of the publishers,
+	//  the connection will be closed. Use the ClosedCB() option to know when the connection has moved from draining to closed
+	// My Assumptions:
+	//  sub.Unsubscribe() not needed if nc.Drain() called
+	//  sub.Drain() not needed if this is nc.Drain() called
+	//  nc.Close() not needed if this is nc.Drain() called
 	nc.Drain()
+	waitUntilEntryQueueEmpty()
 
-	// Close connection
-	nc.Close()
 }
 
 type message struct {
 	Stamp time.Time `json:"stamp"`
 	Host  string    `json:"host"`
 	Text  string    `json:"text"` // or "volt,omitempty"
+}
+
+func waitUntilEntryQueueEmpty() {
+	now := time.Now()
+	maxWait := 20 * time.Second
+	for {
+		// Wait for the queue to become empty
+		entryQueueCond.L.Lock()
+		if len(entryQueue) == 0 {
+			log.Println("EntryQueue is empty we can safely exit")
+
+			entryQueueCond.L.Unlock()
+			return
+		}
+		log.Printf("EntryQueue has %d entries waiting (max=%v)", len(entryQueue), maxWait)
+		entryQueueCond.L.Unlock()
+
+		time.Sleep(1 * time.Second)
+		if time.Since(now) > maxWait {
+			log.Printf("Queue is not empty after %s, exiting anyway", maxWait)
+			return
+		}
+	}
 }
 
 func enqueueMessage(m *message) {
@@ -118,9 +152,14 @@ func enqueueMessage(m *message) {
 	}
 }
 
+// processEntryQueue is a goroutine that processes entries from the entryQueue
+// insertEntry inserts the given entry into the database
+// If an error occurs, the entry is re-enqueued for retry (prepended instead of appended to preserve the intended order)
+// but the processing is paused (with capped exponential backoff)
 func processEntryQueue(ctx context.Context) {
-	backoffTime := 1 * time.Second
+	minBackoffTime := 1 * time.Second
 	maxBackoffTime := 10 * time.Second
+	backoffTime := minBackoffTime
 
 	for {
 		entryQueueCond.L.Lock()
@@ -144,7 +183,10 @@ func processEntryQueue(ctx context.Context) {
 			// Wait for an exponentially (capped) increasing amount of time before retrying
 			log.Printf("EntryQueue pausing (for %v) with %d entries in queue\n", backoffTime, len(entryQueue))
 			time.Sleep(backoffTime)
+			// double the backoff time, but cap it at maxBackoffTime
 			backoffTime = minDuration(2*backoffTime, maxBackoffTime)
+		} else {
+			backoffTime = minBackoffTime
 		}
 	}
 }
