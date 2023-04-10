@@ -1,10 +1,14 @@
 {
   "cSpell.words": [
+    "backoff",
     "Checkerr",
     "datasource",
+    "dbpool",
     "dockerized",
     "logsetup",
+    "pgxpool",
     "psql",
+    "Tablename",
     "TIMESTAMPTZ"
   ]
 }
