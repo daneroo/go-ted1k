@@ -19,6 +19,8 @@ const (
 type Writer struct {
 	Conn      *pgx.Conn
 	TableName string
+	// skipCopyFrom is a flag to skip using the writeWithCopyFrom method, and always use writeWithMultipleInsert
+	skipCopyFrom bool
 }
 
 // Close frees prepared Statements
@@ -27,10 +29,16 @@ func (w *Writer) Close() {
 }
 
 // NewWriter is a constructor for the Writer struct
-func NewWriter(conn *pgx.Conn, tableName string) *Writer {
+func NewWriter(conn *pgx.Conn, tableName string, skipCopyFrom bool) *Writer {
 	return &Writer{
 		Conn:      conn,
 		TableName: tableName,
+		// If we implement the following heuristic, we could skip the initialization parameter to the constructor
+		// Here is heuristic to determine if we could use writeWithCopyFrom:
+		// Assume that the table is empty (or check), if so start with writeWithCopyFrom.
+		// If our last writeWithMultipleInsert return a count == len(entries) then we could reset the default back to writeWithCopyFrom
+		// If our last writeWithCopyFrom throws an error, then we could reset the default back to writeWithMultipleInsert
+		skipCopyFrom: skipCopyFrom,
 	}
 }
 
@@ -64,6 +72,12 @@ func (w *Writer) Write(src <-chan []types.Entry) (int, error) {
 func (w *Writer) flush(entries []types.Entry) (int, error) {
 	if len(entries) == 0 {
 		return 0, nil
+	}
+
+	//  if the skpCopyFrom flag is set, always uses writeWithMultipleInsert directly
+	// otherwise, it attempts to use writeWithCopyFrom, but falls back to writeWithMultipleInsert
+	if w.skipCopyFrom {
+		return w.writeWithMultipleInsert(entries)
 	}
 	return w.writeWithFallback(entries)
 }

@@ -45,8 +45,8 @@ So we keep the grafana.db database snapshot method (for now).
 # Start postgres,grafana ad subscribe services
 docker-compose up -d
 docker compose logs -f subscribe
-# Execute pump to load the last 100 days
-time docker compose exec -it subscribe ./pump
+# Execute pump to load the last 10 days (default is 100 days)
+time docker compose exec -it subscribe ./pump --since 24h --skip-copy-from
 
 # unit tests
 go test -v ./...
@@ -104,7 +104,13 @@ Move comments from galois/d1-px1 migration
 
 ### Postgres/TimescaleDB
 
-You should just need to:
+To interact with the database:
+
+```bash
+docker compose exec -it timescale psql -U postgres ted
+```
+
+To create the database from a new empty timescale instance:
 
 ```bash
 docker compose exec -it timescale psql -U postgres

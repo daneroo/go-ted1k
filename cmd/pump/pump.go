@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -29,8 +30,18 @@ const (
 )
 
 func main() {
+	var since time.Duration
+	defaultDuration := 100 * 24 * time.Hour // 100 days
+	flag.DurationVar(&since, "since", defaultDuration, "duration since the event (e.g., 2400h)")
+	var skipCopyFrom bool
+	flag.BoolVar(&skipCopyFrom, "skip-copy-from", false, "Always use writeWithMultipleInserts, do not use writeWithCopyFrom ")
+	flag.Parse()
+
 	logsetup.SetupFormat()
-	log.Printf("Starting TED1K pump\n") // TODO(daneroo): add version,buildDate
+
+	// just for prettier output: I wish flag.DurationVar() would handle days directly
+	sinceDays := since.Hours() / 24
+	log.Printf("Starting TED1K pump (since=%.1f days skip-copy-from=%v)\n", sinceDays, skipCopyFrom) // TODO(daneroo): add version,buildDate
 
 	// tableNames := []string{"watt", "watt2"}
 	tableNames := []string{"watt"}
@@ -60,7 +71,7 @@ func main() {
 	// mysql (remote) -> postgres
 	if true {
 		myReader := mysql.NewReader(db, "watt")
-		myReader.Epoch = time.Now().Add(-100 * 24 * time.Hour)
+		myReader.Epoch = time.Now().Add(-since)
 		log.Printf("Reading MySQL since %s\n", myReader.Epoch)
 		pgReader := postgres.NewReader(conn, "watt")
 		pgReader.Epoch = myReader.Epoch
@@ -68,7 +79,7 @@ func main() {
 
 		// actually insert
 		// Move this to subscribeAndSync
-		doTest("mysql -> postgres", myReader, postgres.NewWriter(conn, "watt"))
+		doTest(fmt.Sprintf("mysql -> postgres (skipCopyFrom=%v)", skipCopyFrom), myReader, postgres.NewWriter(conn, "watt", skipCopyFrom))
 	}
 	os.Exit(0)
 
@@ -109,7 +120,7 @@ func main() {
 	// postgres
 	if true {
 		fmt.Println()
-		doTest("ephemeral -> postgres", ephemeral.NewReader(), postgres.NewWriter(conn, tableNames[0]))
+		doTest("ephemeral -> postgres", ephemeral.NewReader(), postgres.NewWriter(conn, tableNames[0], skipCopyFrom))
 		doTest("postgres -> ephemeral", postgres.NewReader(conn, tableNames[0]), ephemeral.NewWriter())
 		verify("ephemeral <-> postgres", ephemeral.NewReader(), postgres.NewReader(conn, tableNames[0]))
 	}
