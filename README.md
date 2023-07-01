@@ -69,7 +69,7 @@ So we keep the grafana.db database snapshot method (for now).
 docker compose build --pull
 
 # Start postgres,grafana ad subscribe services
-docker-compose up -d
+docker compose up -d
 docker compose logs -f subscribe
 
 # Execute pump to load the last 10 days (default is 100 days)

@@ -27,8 +27,9 @@ services:
     env_file:
       - ./PG.env
     # No need to expos database port in prod
-    # ports:
-    #   - 5432:5432 # not exposed in prod ?
+    # 2023-07-01 temporarily expose port for jsonl export experimens
+    ports:
+      - 5432:5432 # not exposed in prod ?
 
   grafana:
     image: grafana/grafana-oss:9.4.7
