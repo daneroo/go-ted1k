@@ -201,7 +201,8 @@ func minDuration(a, b time.Duration) time.Duration {
 func insertEntry(entry types.Entry) error {
 	// log.Printf("Writing an entry: %v\n", entry)
 	sql := fmt.Sprintf("INSERT INTO %s (stamp, watt) VALUES ($1,$2)  ON CONFLICT (stamp) DO NOTHING", pgTablename)
-	entry.Stamp = entry.Stamp.Round(time.Second)
+	// Stamp should now be Truncated at source, but we ere Rounding, now we correctly Truncate
+	entry.Stamp = entry.Stamp.Truncate(time.Second)
 	vals := []interface{}{entry.Stamp, entry.Watt}
 
 	ctx := context.Background()
