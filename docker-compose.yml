@@ -14,22 +14,32 @@ services:
     # Later for exporting jsonl
     # volumes:
     #   - ./data/subscribe/export:/export
-    restart: unless-stopped
     depends_on:
       - "timescale"
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
 
   # docker run -d --name timescaledb -p 5432:5432 -e POSTGRES_PASSWORD=password timescale/timescaledb:1.7.4-pg12
   timescale:
     image: timescale/timescaledb:latest-pg14
     volumes:
       - ./data/timescale:/var/lib/postgresql/data
-    restart: unless-stopped
     env_file:
       - ./PG.env
     # No need to expos database port in prod
     # 2023-07-01 temporarily expose port for jsonl export experimens
     ports:
       - 5432:5432 # not exposed in prod ?
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
 
   grafana:
     image: grafana/grafana-oss:9.4.7
@@ -39,6 +49,12 @@ services:
       - "timescale"
     ports:
       - 3000:3000
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
 
   # mysql:
   #   # image: mysql:5.7
