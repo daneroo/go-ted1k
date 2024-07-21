@@ -9,6 +9,9 @@
     "pgxpool",
     "psql",
     "Tablename",
-    "TIMESTAMPTZ"
+    "TIMESTAMPDIFF",
+    "TIMESTAMPTZ",
+    "xjvf",
+    "zipslice"
   ]
 }

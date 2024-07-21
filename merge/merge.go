@@ -59,9 +59,9 @@ func combineConsecutiveZipEntries(zipslice <-chan []zipEntry) []string {
 type Type int
 
 const (
-	// Equal denotes twow entries have identical values (for the same timestamp)
+	// Equal denotes two entries have identical values (for the same timestamp)
 	Equal Type = iota // 0
-	// Conflict denotes twow entries have conficting values (for the same timestamp)
+	// Conflict denotes two entries have conflicting values (for the same timestamp)
 	Conflict // 1
 	// MissingInA denotes the entry is not present in the A channel
 	MissingInA // 2
@@ -160,7 +160,7 @@ func newEntryIterator(src <-chan types.Entry) *entryIterator {
 
 func (i *entryIterator) Next() bool {
 	if entry, ok := <-i.src; ok {
-		i.entry = entry // strore in struct state
+		i.entry = entry // store in struct state
 	} else {
 		return false
 	}
@@ -195,7 +195,7 @@ func (i *sliceIterator) Next() bool {
 	for len(i.slice) == 0 {
 		// fetch the nxt slice if there is one
 		if slice, ok := <-i.src; ok {
-			i.slice = slice // strore is struct state
+			i.slice = slice // store is struct state
 		} else {
 			return false
 		}

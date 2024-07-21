@@ -16,26 +16,98 @@ It is also the home of our grafana-ted:
 
 ## Backups (WiP)
 
-2023-07-01
+2023-07-01 - fix process for updating jsonl dumps
+
+- [ ] first we opened the timescale port so we can connect from galois
+- make d1-px1:postgres <-> ted1k:mysql (mysql was missing some samples which subscribe had caught)
+- verify jsonl <-> timescale
+- ? restore jsonl back to galois:./data
+
+```bash
+# on galois
+docker compose up -d timescale
+# confirm connectivity
+psql "postgres://postgres:secret@0.0.0.0:5432/ted"
+
+mkdir -p ./data/jsonl
+# restore /Volumes/Space/archive/mirror/ted/ted.20201120.2332Z.rollup-clean.jsonl.tar.bz2
+(cd ./data/jsonl && tar -xjvf /Volumes/Space/archive/mirror/ted/ted.20201120.2332Z.rollup-clean.jsonl.tar.bz2)
+```
 
 - mysql
-  | Year | Min Date | Max Date | Count |
-  | ---- | ------------------- | ------------------- | -------- |
-  | 2007 | 2007-08-28 00:02:18 | 2007-08-28 20:56:22 | 75026 |
-  | 2016 | 2016-03-12 06:35:35 | 2016-12-31 23:59:59 | 24957526 |
-  | 2017 | 2017-01-01 00:00:00 | 2017-12-31 23:59:59 | 29321718 |
-  | 2018 | 2018-01-01 00:00:00 | 2018-12-31 23:59:59 | 30758853 |
-  | 2019 | 2019-01-01 00:00:00 | 2019-12-31 23:59:59 | 30639015 |
-  | 2020 | 2020-01-01 00:00:00 | 2020-12-31 23:59:59 | 31478859 |
-  | 2021 | 2021-01-01 00:00:00 | 2021-12-31 23:59:59 | 31401094 |
-  | 2022 | 2022-01-01 00:00:00 | 2022-12-31 23:59:59 | 31425006 |
-  | 2023 | 2023-01-01 00:00:00 | 2023-07-01 02:56:04 | 15336517 |
 
-- timescale
-  | Year | Min Date (GMT) | Max Date (GMT) | Count |
-  | ---- | ------------------- | ------------------- | -------- |
-  | 2022 | 2022-12-29 21:56:41 | 2022-12-31 23:59:59 | 180131 |
-  | 2023 | 2023-01-01 00:00:00 | 2023-07-01 03:03:24 | 15424260 |
+| Year | Min Date            | Max Date            |    Count | Missing Samples | Percent Missing |
+| ---- | ------------------- | ------------------- | -------: | --------------: | --------------: |
+| 2007 | 2007-08-28 00:02:18 | 2007-08-28 20:56:22 |    75026 |             219 |          0.2910 |
+| 2016 | 2016-03-12 06:35:35 | 2016-12-31 23:59:59 | 24957526 |          506739 |          1.9900 |
+| 2017 | 2017-01-01 00:00:00 | 2017-12-31 23:59:59 | 29321718 |         2214282 |          7.0214 |
+| 2018 | 2018-01-01 00:00:00 | 2018-12-31 23:59:59 | 30758853 |          777147 |          2.4643 |
+| 2019 | 2019-01-01 00:00:00 | 2019-12-31 23:59:59 | 30639015 |          896985 |          2.8443 |
+| 2020 | 2020-01-01 00:00:00 | 2020-12-31 23:59:59 | 31478859 |          143541 |          0.4539 |
+| 2021 | 2021-01-01 00:00:00 | 2021-12-31 23:59:59 | 31401094 |          134906 |          0.4278 |
+| 2022 | 2022-01-01 00:00:00 | 2022-12-31 23:59:59 | 31425006 |          110994 |          0.3520 |
+| 2023 | 2023-01-01 00:00:00 | 2023-07-02 02:18:18 | 15507938 |          225161 |          1.4311 |
+
+- timescale (as taken on 2023-07-01)
+
+| Year | Min Date (GMT)         | Max Date (GMT)         |    Count | Missing Samples | Percent Missing |
+| ---- | ---------------------- | ---------------------- | -------: | --------------: | --------------: |
+| 2022 | 2022-12-26 12:32:44+00 | 2022-12-31 23:59:59+00 |   473160 |              76 |            0.02 |
+| 2023 | 2023-01-01 00:00:00+00 | 2023-07-02 02:14:43+00 | 15507723 |          225161 |            1.43 |
+
+- ted.20201120.2332Z.rollup-clean.jsonl.tar.bz2
+
+| Year | Min Date (GMT)         | Max Date (GMT)         |    Count | Missing Samples | Percent Missing |
+| ---- | ---------------------- | ---------------------- | -------: | --------------: | --------------: |
+| 2008 | 2008-07-30 00:04:40+00 | 2008-12-31 23:59:59+00 | 11774452 |         1617268 |           12.08 |
+| 2009 | 2009-01-01 00:00:00+00 | 2009-12-31 23:59:59+00 | 30787092 |          748908 |            2.37 |
+| 2010 | 2010-01-01 00:00:00+00 | 2010-12-31 23:59:59+00 | 26945219 |         4590781 |           14.56 |
+| 2011 | 2011-01-01 00:00:00+00 | 2011-12-31 23:59:59+00 | 29431889 |         2104111 |            6.67 |
+| 2012 | 2012-01-01 00:00:00+00 | 2012-12-31 23:59:59+00 | 31143616 |          478784 |            1.51 |
+| 2013 | 2013-01-01 00:00:00+00 | 2013-12-31 23:59:59+00 | 30991522 |          544478 |            1.73 |
+| 2014 | 2014-01-01 00:00:00+00 | 2014-12-25 19:47:01+00 | 29023797 |         1978625 |            6.38 |
+| 2015 | 2015-01-04 08:41:46+00 | 2015-12-31 23:59:59+00 | 30685714 |          559780 |            1.79 |
+| 2016 | 2016-01-01 00:00:00+00 | 2016-12-31 23:59:59+00 | 27276253 |         4346147 |           13.74 |
+| 2017 | 2017-01-01 00:00:00+00 | 2017-12-31 23:59:59+00 | 29321718 |         2214282 |            7.02 |
+| 2018 | 2018-01-01 00:00:00+00 | 2018-12-31 23:59:59+00 | 30758853 |          777147 |            2.46 |
+| 2019 | 2019-01-01 00:00:00+00 | 2019-12-31 23:59:59+00 | 30639015 |          896985 |            2.84 |
+| 2020 | 2020-01-01 00:00:00+00 | 2020-11-20 23:32:33+00 | 27936828 |          141526 |            0.50 |
+
+### Queries
+
+postgres/timescale:
+
+```sql
+SELECT
+  EXTRACT(YEAR FROM stamp) AS Year,
+  MIN(stamp) AS "Min Date (GMT)",
+  MAX(stamp) AS "Max Date (GMT)",
+  COUNT(*) AS Count,
+  (EXTRACT(EPOCH FROM (MAX(stamp) - MIN(stamp))) + 1)::integer - COUNT(*) AS "Missing Samples",
+  ROUND(((EXTRACT(EPOCH FROM (MAX(stamp) - MIN(stamp))) + 1)::integer - COUNT(*))::decimal / (EXTRACT(EPOCH FROM (MAX(stamp) - MIN(stamp))) + 1)::integer * 100, 2) AS "Percent Missing"
+FROM
+  watt
+GROUP BY
+  Year
+ORDER BY
+  Year;
+```
+
+and mysql:
+
+```sql
+SELECT
+  YEAR(stamp) AS year,
+  MIN(stamp) AS min_date,
+  MAX(stamp) AS max_date,
+  COUNT(*) AS count,
+  TIMESTAMPDIFF(SECOND, MIN(stamp), MAX(stamp)) + 1 - COUNT(*) AS missing_samples,
+  (TIMESTAMPDIFF(SECOND, MIN(stamp), MAX(stamp)) + 1 - COUNT(*)) / (TIMESTAMPDIFF(SECOND, MIN(stamp), MAX(stamp)) + 1) * 100 AS percent_missing
+FROM
+  watt
+GROUP BY
+  YEAR(stamp);
+```
 
 ## TODO
 
@@ -64,6 +136,17 @@ So we keep the grafana.db database snapshot method (for now).
 
 ## Operations
 
+From `galois`
+
+```bash
+ssh d1-px1.imetrical.com
+
+(cd Code/iMetrical/go-ted1k/; docker compose logs -f subscribe)
+time (cd Code/iMetrical/go-ted1k/; docker compose exec -it subscribe ./pump --since 2400h --skip-copy-from)
+```
+
+### Development
+
 ```bash
 # Build our containers
 docker compose build --pull
@@ -74,6 +157,9 @@ docker compose logs -f subscribe
 
 # Execute pump to load the last 10 days (default is 100 days)
 time docker compose exec -it subscribe ./pump --since 240h --skip-copy-from
+
+# Connect to the database - ted
+time docker compose exec -it timescale psql -U postgres ted
 
 # unit tests
 go test -v ./...
