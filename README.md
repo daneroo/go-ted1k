@@ -113,7 +113,7 @@ GROUP BY
 
 Task details in [`tasks/`](tasks/) — each file is removed when completed.
 
-- [ ] [Verify build and tests](tasks/2026-03-23-01-verify-build-and-tests.md) — confirm Go build, tests, and Docker image still work
+- [x] [Verify build and tests](tasks/2026-03-23-01-verify-build-and-tests.md) — confirm Go build, tests, and Docker image still work
 - [ ] [Verify README accuracy](tasks/2026-03-23-02-verify-readme-accuracy.md) — walk each section, fix stale hosts/URLs/data
 - [ ] [Verify data pipeline](tasks/2026-03-23-03-verify-data-pipeline.md) — MySQL→pump→TimescaleDB→Grafana still operational
 - [ ] [Upgrade Go and dependencies](tasks/2026-03-23-04-upgrade-go-and-deps.md) — Go 1.20→current, update all deps
